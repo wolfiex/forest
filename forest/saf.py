@@ -99,7 +99,7 @@ class saf(object):
                 zi = interpolator(np.array([xi,yi]).transpose())
 
                 zi = np.ma.masked_invalid(zi, copy=False)
-                zi = np.ma.masked_outside(zi, nc[self.locator.varlist[state.variable]].valid_range[0], nc[self.locator.varlist[state.variable]].valid_range[1], copy=False)
+                zi = np.ma.masked_outside(zi, nc[self.locator.varlist[state.variable]].valid_range[0], nc[self.locator.varlist[state.variable]].valid_range[1], copy=False).transpose()
                 data = geo.stretch_image(xi[0,:], yi[:,0], zi)
                 #data = geo.stretch_image(x[0,:], y[:,0], nc[state.variable][:])
                 data.update(coordinates(state.valid_time, state.initial_time, state.pressures, state.pressure))
