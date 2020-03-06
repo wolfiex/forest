@@ -20,6 +20,7 @@ import collections
 import glob
 import re
 import os
+import pickle
 
 import numpy as np
 import numpy.ma as ma
@@ -85,7 +86,12 @@ class saf(object):
                 #https://docs.scipy.org/doc/scipy-0.18.1/reference/generated/scipy.spatial.Delaunay.html
                 #does it once and re-uses for speed
                 if not self.tri: 
-                    self.tri = Delaunay(np.array([x,y]).transpose())
+                    picklefile = str(hash((x.min(), y.min(),x.max(),y.max())))+'.pickle'
+                    if os.path.exists(picklefile):
+                        print('Loading pickled Dealauney triangulation')
+                        self.tri = pickle.load(open(picklefile, mode='rb'))
+                    else:
+                        self.tri = Delaunay(np.array([x,y]).transpose())
 
                 #Interpolate onto regular grid
                 interpolator = LinearNDInterpolator(self.tri, z)
