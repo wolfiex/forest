@@ -29,7 +29,7 @@ from scipy.interpolate import griddata, LinearNDInterpolator
 from scipy.spatial import Delaunay
 import itertools
 
-import netCDF4
+import xarray
 
 from forest.gridded_forecast import _to_datetime, empty_image, coordinates
 from forest.util import timeout_cache
@@ -70,16 +70,16 @@ class saf(object):
         :returns: Output data from :meth:`geo.stretch_image`'''
         data = empty_image()
         for nc in self.locator._sets: 
-            if str(datetime.datetime.strptime(nc.nominal_product_time.replace('Z','UTC'), '%Y-%m-%dT%H:%M:%S%Z')) == state.valid_time and self.locator.varlist[state.variable] in nc.variables:
+            if str(datetime.datetime.strptime(nc.nominal_product_time.replace('Z','UTC'), '%Y-%m-%dT%H:%M:%S%Z')) == state.valid_time and self.locator.varlist[state.variable] in nc.data_vars:
                 #regrid to regular grid
-                x = nc['lon'][:].flatten() # lat & lon both 2D arrays
-                y = nc['lat'][:].flatten() #
-                z = nc[self.locator.varlist[state.variable]][:].flatten()
+                x = nc['lon'].values.flatten() # lat & lon both 2D arrays
+                y = nc['lat'].values.flatten() #
+                z = nc[self.locator.varlist[state.variable]].values.flatten()
 
                 #define regular grid
                 xi, yi = np.meshgrid(
-                        np.linspace(x.min(),x.max(),nc.dimensions['nx'].size),
-                        np.linspace(y.min(),y.max(),nc.dimensions['ny'].size), 
+                        np.linspace(x.min(),x.max(),nc.dims['nx']),
+                        np.linspace(y.min(),y.max(),nc.dims['ny']), 
                             )
 
                 #define Delaunay Triangulation
@@ -88,8 +88,9 @@ class saf(object):
                 if not self.tri: 
                     picklefile = str(hash((x.min(), y.min(),x.max(),y.max())))+'.pickle'
                     if os.path.exists(picklefile):
-                        print('Loading pickled Dealauney triangulation')
+                        print('Loading pickled Dealauney triangulation..', end='', flush=True)
                         self.tri = pickle.load(open(picklefile, mode='rb'))
+                        print('finished')
                     else:
                         self.tri = Delaunay(np.array([x,y]).transpose())
 
@@ -106,7 +107,7 @@ class saf(object):
                 data.update({
                     'name': [str(nc[self.locator.varlist[state.variable]].long_name)],
                 })
-                if 'units' in nc[self.locator.varlist[state.variable]].ncattrs():
+                if 'units' in nc[self.locator.varlist[state.variable]].attrs:
                     data.update({
                         'units': [str(nc[self.locator.varlist[state.variable]].units)]
                     })
@@ -120,16 +121,15 @@ class Locator(object):
         self._sets = []
         for path in self.paths:
             #possibly use MFDataset which takes a glob pattern
-            self._sets.append(netCDF4.Dataset(path)) 
+            self._sets.append(xarray.open_dataset(path)) 
 
         #Get variable names and keys
         self.varlist = {}
         for nc in self._sets: 
-            for variable in nc.variables:
+            for variable in nc.data_vars:
                 #only display vars with lon/lat coords
-                if('coordinates' in nc.variables[variable].ncattrs() and nc.variables[variable].coordinates == "lon lat"):
-                    self.varlist[nc.variables[variable].long_name] = variable
-
+                if('lon' in nc.data_vars[variable].coords):
+                    self.varlist[nc.data_vars[variable].long_name] = variable
 
     def find_file(self, valid_date):
         paths = np.array(self.paths)  # Note: timeout cache in use
@@ -198,7 +198,7 @@ class Coordinates(object):
         self.locator = Locator(pattern)
         times = []
         for nc in self.locator._sets:
-            if variable is None or self.locator.varlist[variable] in nc.variables:
+            if variable is None or self.locator.varlist[variable] in nc.data_vars:
                 times.append(str(datetime.datetime.strptime(nc.nominal_product_time.replace('Z','UTC'), '%Y-%m-%dT%H:%M:%S%Z')))
         return times
 
