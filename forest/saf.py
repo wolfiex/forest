@@ -27,7 +27,8 @@ import numpy.ma as ma
 from scipy.interpolate import griddata, LinearNDInterpolator
 #from metpy.interpolate import interpolate_to_grid
 from scipy.spatial import Delaunay
-import itertools
+
+from timeit import default_timer as timer
 
 import xarray
 
@@ -72,9 +73,9 @@ class saf(object):
         for nc in self.locator._sets: 
             if str(datetime.datetime.strptime(nc.nominal_product_time.replace('Z','UTC'), '%Y-%m-%dT%H:%M:%S%Z')) == state.valid_time and self.locator.varlist[state.variable] in nc.data_vars:
                 #regrid to regular grid
-                x = nc['lon'].values.flatten() # lat & lon both 2D arrays
-                y = nc['lat'].values.flatten() #
-                z = nc[self.locator.varlist[state.variable]].values.flatten()
+                x = np.ma.masked_invalid(nc['lon'])[:].flatten() # lat & lon both 2D arrays
+                y = np.ma.masked_invalid(nc['lat'])[:].flatten() #
+                z = np.ma.masked_invalid(nc[self.locator.varlist[state.variable]])[:].flatten()
 
                 #define regular grid
                 xi, yi = np.meshgrid(
@@ -89,8 +90,9 @@ class saf(object):
                     picklefile = str(hash((x.min(), y.min(),x.max(),y.max())))+'.pickle'
                     if os.path.exists(picklefile):
                         print('Loading pickled Dealauney triangulation..', end='', flush=True)
+                        start=timer()
                         self.tri = pickle.load(open(picklefile, mode='rb'))
-                        print('finished')
+                        print('finished %s seconds' % (timer() - start,))
                     else:
                         self.tri = Delaunay(np.array([x,y]).transpose())
 
@@ -101,7 +103,9 @@ class saf(object):
 
                 zi = np.ma.masked_invalid(zi, copy=False)
                 zi = np.ma.masked_outside(zi, nc[self.locator.varlist[state.variable]].valid_range[0], nc[self.locator.varlist[state.variable]].valid_range[1], copy=False).transpose()
+                print('Stretching image..', end='', flush=True)
                 data = geo.stretch_image(xi[0,:], yi[:,0], zi)
+                print('finished %s seconds' % (timer() - start,))
                 #data = geo.stretch_image(x[0,:], y[:,0], nc[state.variable][:])
                 data.update(coordinates(state.valid_time, state.initial_time, state.pressures, state.pressure))
                 data.update({
