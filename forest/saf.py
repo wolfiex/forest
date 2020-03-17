@@ -104,6 +104,7 @@ class saf(object):
                 zi = np.ma.masked_invalid(zi, copy=False)
                 zi = np.ma.masked_outside(zi, nc[self.locator.varlist[state.variable]].valid_range[0], nc[self.locator.varlist[state.variable]].valid_range[1], copy=False).transpose()
                 print('Stretching image..', end='', flush=True)
+                start=timer()
                 data = geo.stretch_image(xi[0,:], yi[:,0], zi)
                 print('finished %s seconds' % (timer() - start,))
                 #data = geo.stretch_image(x[0,:], y[:,0], nc[state.variable][:])
