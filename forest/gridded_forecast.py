@@ -35,6 +35,8 @@ def _to_datetime(d):
         return d
     if isinstance(d, cftime.DatetimeNoLeap):
         return datetime(d.year, d.month, d.day, d.hour, d.minute, d.second)
+    elif isinstance(d, cftime.DatetimeGregorian):
+        return datetime(d.year, d.month, d.day, d.hour, d.minute, d.second)
     elif isinstance(d, str):
         try:
             return datetime.strptime(d, "%Y-%m-%d %H:%M:%S")
@@ -43,7 +45,7 @@ def _to_datetime(d):
     elif isinstance(d, np.datetime64):
         return d.astype(datetime)
     else:
-        raise Exception("Unknown value: {}".format(d))
+        raise Exception("Unknown value: {} type: {}".format(d, type(d)))
 
 
 def coordinates(valid_time, initial_time, pressures, pressure):
