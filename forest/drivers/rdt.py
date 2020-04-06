@@ -8,20 +8,53 @@ import re
 import datetime as dt
 import bokeh
 import json
+import netCDF4 as nc
 import numpy as np
+import numpy.ma as ma
+import cf_units
+from geojson import Point, Polygon, Feature, FeatureCollection
 from forest import (
         geo,
         locate)
 from forest.old_state import old_state, unique
-from forest.util import timeout_cache
+import forest.util
 from forest.exceptions import FileNotFound
 from bokeh.palettes import GnBu3, OrRd3
 import itertools
 import math
-from forest.gridded_forecast import _to_datetime
 
 
-class RenderGroup(object):
+class Dataset:
+    def __init__(self, pattern=None, **kwargs):
+        self.pattern = pattern
+        self.locator = Locator(pattern)
+
+    def navigator(self):
+        return Navigator(self.locator)
+
+    def map_view(self):
+        return View(Loader(self.pattern))
+
+
+class Navigator:
+    """Navigator API facade"""
+    def __init__(self, locator):
+        self.locator = locator
+
+    def variables(self, *args, **kwargs):
+        return ["RDT"]
+
+    def initial_times(self, *args, **kwargs):
+        return [dt.datetime(1970, 1, 1)]
+
+    def valid_times(self, *args, **kwargs):
+        return self.locator.valid_times()
+
+    def pressures(self, *args, **kwargs):
+        return []
+
+
+class RenderGroup:
     """Collection of renderers that act as one"""
     def __init__(self, renderers, visible=False):
         self.renderers = renderers
@@ -37,7 +70,7 @@ class RenderGroup(object):
             r.visible = value
 
 
-class View(object):
+class View:
     """Rapidly Developing Thunderstorms (RDT) visualisation"""
     def __init__(self, loader):
         self.loader = loader
@@ -119,6 +152,7 @@ class View(object):
                 NumIdBirth=[],
                 MvtSpeed=[],
                 MvtDirection=[])
+
         self.color_mapper = bokeh.models.CategoricalColorMapper(
                 palette=['#fee8c8', '#fdbb84', '#e34a33', '#43a2ca', '#a8ddb5'],
                 factors=["Triggering", "Triggering from split", "Growing", "Mature", "Decaying"])
@@ -132,7 +166,7 @@ class View(object):
     def render(self, state):
         """Gets called when a menu button is clicked (or when application state changes)"""
         if state.valid_time is not None:
-            date = _to_datetime(state.valid_time)
+            date = forest.util.to_datetime(state.valid_time)
             try:
                 (self.source.geojson,
                  self.tail_line_source.data,
@@ -187,25 +221,43 @@ class View(object):
         return RenderGroup([renderer, lines, circles, cntr_circles, future_lines, arrows])
 
 
-class Loader(object):
+class Loader:
     """High-level RDT loader"""
     def __init__(self, pattern):
         self.locator = Locator(pattern)
 
     def load_date(self, date):
         file_name = self.locator.find_file(date)
-        return (
-                self.load_polygon(file_name),
-                self.load_tail_lines(file_name),
-                self.load_tail_points(file_name),
-                self.load_centre_points(file_name))
+        print(file_name)
+        if os.path.splitext(file_name)[1] == '.nc':
+            return self.load_all_netcdf(file_name)
+        elif os.path.splitext(file_name)[1] == '.json':
+            return (
+                self.load_polygon_json(file_name),
+                self.load_tail_lines_json(file_name),
+                self.load_tail_points_json(file_name),
+                self.load_centre_points_json(file_name)
+            )
+        else:
+            return 'File extension not recognised: ' + file_name
 
     @staticmethod
-    def load_polygon(path):
+    def load_all_netcdf(path):
+        """
+        Loads polygons from netcdf
+        :param path: absolute path and filename
+        :return: geojson object for plotting in bokeh
+        """
+
+        return getRDT(path, 0, 'All')
+
+    @staticmethod
+    def load_polygon_json(path):
         """Load GeoJSON string representation of Polygons from file
 
         :returns: GeoJSON str
         """
+
         with open(path) as stream:
             rdt = json.load(stream)
 
@@ -243,7 +295,18 @@ class Loader(object):
         return json.dumps(copy)
 
     @staticmethod
-    def load_tail_lines(path):
+    def load_polygon_netcdf(path):
+        """
+        Loads polygons from netcdf
+        :param path: absolute path and filename
+        :return: geojson object for plotting in bokeh
+        """
+
+        return getRDT(path, 0, 'Polygon')
+
+
+    @staticmethod
+    def load_tail_lines_json(path):
         """Load tail line data from file
 
         :returns: dict representation suitable for ColumnDataSource
@@ -252,21 +315,7 @@ class Loader(object):
             rdt = json.load(stream)
 
         # Create an empty dictionary
-        mydict = dict(
-                xs=[], ys=[],
-                LonTrajCellCG=[],
-                LatTrajCellCG=[],
-                NumIdCell=[],
-                NumIdBirth=[],
-                DTimeTraj=[],
-                BTempTraj=[],
-                BTminTraj=[],
-                BaseAreaTraj=[],
-                TopAreaTraj=[],
-                CoolingRateTraj=[],
-                ExpanRateTraj=[],
-                SpeedTraj=[],
-                DirTraj=[])
+        mydict = get_empty_feature_dict('Tail_Lines')
 
         # Loop through features
         for i, feature in enumerate(rdt["features"]):
@@ -288,29 +337,27 @@ class Loader(object):
             xs, ys = geo.web_mercator(lons, lats)
             mydict['xs'].append(xs)
             mydict['ys'].append(ys)
+
         return mydict
 
     @staticmethod
-    def load_tail_points(path):
+    def load_tail_lines_netcdf(path):
+        """
+        Loads tail lines from the netcdf file
+        :param path: absolute path and filename
+        :return: dictionary of data for plotting as a ColumnDataSource in bokeh
+        """
+
+        return getRDT(path, 0, 'Tail_Lines')
+
+
+    @staticmethod
+    def load_tail_points_json(path):
         with open(path) as stream:
             rdt = json.load(stream)
 
         # Create an empty dictionary
-        mydict = dict(
-                x=[], y=[],
-                LonTrajCellCG=[],
-                LatTrajCellCG=[],
-                NumIdCell=[],
-                NumIdBirth=[],
-                DTimeTraj=[],
-                BTempTraj=[],
-                BTminTraj=[],
-                BaseAreaTraj=[],
-                TopAreaTraj=[],
-                CoolingRateTraj=[],
-                ExpanRateTraj=[],
-                SpeedTraj=[],
-                DirTraj=[])
+        mydict = get_empty_feature_dict('Tail_Points')
 
         # Loop through features
         for i, feature in enumerate(rdt["features"]):
@@ -340,22 +387,24 @@ class Loader(object):
         return mydict
 
     @staticmethod
-    def load_centre_points(path):
+    def load_tail_points_netcdf(path):
+        """
+        Loads tail points from the netcdf file
+        :param path: absolute path and filename
+        :return: dictionary of data for plotting as a ColumnDataSource in bokeh
+        """
+
+        return getRDT(path, 0, 'Tail_Points')
+
+    @staticmethod
+    def load_centre_points_json(path):
         """Holds a centre point, future point and future movement line"""
+
         with open(path) as stream:
             rdt = json.load(stream)
 
         # Create an empty dictionary
-        mydict = dict(
-                x1=[], y1=[], x2=[], y2=[], xs=[], ys=[],
-                Arrowxs=[],
-                Arrowys=[],
-                LonG=[],
-                LatG=[],
-                NumIdCell=[],
-                NumIdBirth=[],
-                MvtSpeed=[],
-                MvtDirection=[])
+        mydict = get_empty_feature_dict('Centre_Point')
 
         # Loop through features
         for i, feature in enumerate(rdt["features"]):
@@ -383,20 +432,348 @@ class Loader(object):
                 direction = float(feature['properties']['MvtDirection'])
             except ValueError:
                 direction = 0
-            lon2, lat2 = calc_dst_point(lon, lat, speed, direction)
-            x2, y2 = geo.web_mercator(lon2, lat2)
-            mydict['x2'].extend(x2)
-            mydict['y2'].extend(y2)
-            mydict['xs'].append([x1, x2])
-            mydict['ys'].append([y1, y2])
 
-            # Now calculate arrow polygon
-            x3d, y3d, x4d, y4d = get_arrow_poly(lon2, lat2, speed, direction)
-            [x3, x4], [y3, y4] = geo.web_mercator([x3d, x4d], [y3d, y4d])
+            mydict = make_arrow(mydict, lon, lat, speed, direction)
 
-            mydict['Arrowxs'].append([x2[0], x3, x4])
-            mydict['Arrowys'].append([y2[0], y3, y4])
         return mydict
+
+    @staticmethod
+    def load_centre_points_netcdf(path):
+        """
+        Loads tail points from the netcdf file
+        :param path: absolute path and filename
+        :return: dictionary of data for plotting as a ColumnDataSource in bokeh
+        """
+
+        return getRDT(path, 0, 'Centre_Point')
+
+
+def make_arrow(mydict, lon, lat, speed, direction):
+
+    lon2, lat2 = calc_dst_point(lon, lat, speed, direction)
+    x1, y1 = geo.web_mercator(lon, lat)
+    x2, y2 = geo.web_mercator(lon2, lat2)
+    mydict['x2'].extend(x2)
+    mydict['y2'].extend(y2)
+    mydict['xs'].append([x1, x2])
+    mydict['ys'].append([y1, y2])
+
+    # Now calculate arrow polygon
+    x3d, y3d, x4d, y4d = get_arrow_poly(lon2, lat2, speed, direction)
+    [x3, x4], [y3, y4] = geo.web_mercator([x3d, x4d], [y3d, y4d])
+
+    mydict['Arrowxs'].append([x2[0], x3, x4])
+    mydict['Arrowys'].append([y2[0], y3, y4])
+
+    return mydict
+
+def get_empty_feature_dict(type):
+
+    if type == 'Tail_Lines':
+        return dict(
+                xs=[], ys=[],
+                LonTrajCellCG=[],
+                LatTrajCellCG=[],
+                NumIdCell=[],
+                NumIdBirth=[],
+                DTimeTraj=[],
+                BTempTraj=[],
+                BTminTraj=[],
+                BaseAreaTraj=[],
+                TopAreaTraj=[],
+                CoolingRateTraj=[],
+                ExpanRateTraj=[],
+                SpeedTraj=[],
+                DirTraj=[])
+
+    if type == 'Tail_Points':
+        return dict(
+                x=[], y=[],
+                LonTrajCellCG=[],
+                LatTrajCellCG=[],
+                NumIdCell=[],
+                NumIdBirth=[],
+                DTimeTraj=[],
+                BTempTraj=[],
+                BTminTraj=[],
+                BaseAreaTraj=[],
+                TopAreaTraj=[],
+                CoolingRateTraj=[],
+                ExpanRateTraj=[],
+                SpeedTraj=[],
+                DirTraj=[])
+
+    if type == 'Centre_Point':
+        return dict(
+                x1=[], y1=[], x2=[], y2=[], xs=[], ys=[],
+                Arrowxs=[],
+                Arrowys=[],
+                LonG=[],
+                LatG=[],
+                NumIdCell=[],
+                NumIdBirth=[],
+                MvtSpeed=[],
+                MvtDirection=[])
+    else:
+        return type + ': Not a valid feature type'
+
+
+def getRDT(path, lev, type):
+
+    '''
+    Gets RDT data from the netcdf output of the NWCSAF software
+    :param path: Full path and filename of the netcdf file
+    :param lev: [0,1] Level number. 0 = bottom of the cloud, 1 = top of the cloud (heights vary between clouds)
+    :param type: ['All', 'Centre_Point', 'Polygon', 'Tail_Points', 'Tail_Lines', 'Gridded']
+    :return: geojson feature collection object for plotting
+    '''
+
+    # Load the netcdf data
+    ncds = nc.Dataset(path)
+
+    # Get variable names that have either 'nlevel' or 'recNUM' dimensions
+    varlev = [] # 'nlevel' dimension
+    varrec = [] # 'recNUM' dimension
+    vartraj = [] # 'nbpttraj' Trajectory points for each object
+    for ncv in ncds.variables.keys():
+        var_dim = ncds.variables[ncv].dimensions
+        if 'nlevel' in var_dim:
+            varlev.append(ncv)
+        if ('recNUM' in var_dim) and (ncds.dimensions['recNUM'].size == ncds.variables[ncv].size):
+            varrec.append(ncv)
+        if 'nbpttraj' in var_dim:
+            vartraj.append(ncv)
+    allvars = varlev.copy()
+    allvars.extend(varrec)
+
+    # How many cloud levels have we got? It should only be 2 (cloud top and bottom)
+    dimsize = len(ma.getdata(ncds.variables[varlev[0]][0,:]))
+
+    # Convert units from the netcdf
+    unitsToRescale = {'Pa': 'hPa'} #, 'K': 'degC'}
+    # Get text labels instead of numbers for certain fields
+    fieldsToLookup = ['PhaseLife', 'SeverityType', 'SeverityIntensity', 'ConvType', 'CType']
+
+    # Check the lev is within the dimsize
+    if not lev in np.arange(dimsize):
+        return 'Please enter a valid level number (0 or 1)'
+    else:
+        list_to_return = []
+
+    if type in ['Polygon', 'All']:
+
+        # Create list of features to populate
+        features = []
+        fieldsToLookup = ['PhaseLife', 'SeverityType', 'SeverityIntensity', 'ConvType', 'CType']
+        for i in np.arange(ncds.dimensions['recNUM'].size):
+
+            # do something
+            ypolcoords_ll = getDataOnly(ncds.variables['LatContour'][i, lev, :])
+            xpolcoords_ll = getDataOnly(ncds.variables['LonContour'][i, lev, :])
+
+            xpolcoords, ypolcoords = geo.web_mercator(xpolcoords_ll, ypolcoords_ll)
+
+            this_poly = Polygon([[(float(coord[0]), float(coord[1])) for coord in zip(xpolcoords, ypolcoords)]])
+
+            # Get the properties for this polygon
+            pol_props = {}
+            for var in allvars:
+
+                if var in varlev:
+                    thisdata = ncds.variables[var][i, lev]
+                else:
+                    thisdata = ncds.variables[var][i]
+
+                thisdata_scaled = convert_values(thisdata, ncds.variables[var])
+                datatype = ncds.variables[var].datatype
+
+                if var in fieldsToLookup:
+                    try:
+                        thisdata_scaled = fieldValueLUT(var, int(thisdata))
+                        datatype = 'string'
+                    except:
+                        continue
+
+                update_json(pol_props, var, thisdata_scaled, datatype)
+
+            features.append(Feature(geometry=this_poly, properties=pol_props))
+
+        feature_collection = FeatureCollection(features)
+        
+        list_to_return.append(json.dumps(feature_collection))
+
+
+    if type in ['Tail_Lines', 'All']:
+
+        # Create an empty dictionary
+        mydict_tl = get_empty_feature_dict('Tail_Lines')
+
+        # Loop through features
+        for i in np.arange(ncds.dimensions['recNUM'].size):
+
+            # Loop through all items in mydict_tl
+            for k in mydict_tl.keys():
+                try:
+                    thisdata, units = descale_rdt(k, getDataOnly(ncds.variables[k][:]))
+                    mydict_tl[k].append(thisdata)
+                except:
+                    # Do nothing at the moment with the xs and ys
+                    if not k in ['xs', 'ys']:
+                        mydict_tl[k].append(None)
+                    else:
+                        continue
+
+            lats = getDataOnly(ncds.variables['LatTrajCellCG'][i, :])
+            lons = getDataOnly(ncds.variables['LonTrajCellCG'][i, :])
+
+            xs, ys = geo.web_mercator(lons, lats)
+            mydict_tl['xs'].append(xs)
+            mydict_tl['ys'].append(ys)
+
+        list_to_return.append(mydict_tl)
+
+
+    if type in ['Tail_Points', 'All']:
+
+        # Create an empty dictionary
+        mydict_tp = get_empty_feature_dict('Tail_Points')
+
+        for i in np.arange(ncds.dimensions['recNUM'].size):
+
+            # do something
+            npts = len(getDataOnly(ncds.variables['LonTrajCellCG'][i]))
+            mykeys = [k for k in mydict_tp.keys() if k not in ['x', 'y']]
+            for k in mykeys:
+
+                thisdata = getDataOnly(ncds.variables[k][i]).tolist()
+
+                try:
+                    if len(thisdata) == 1:
+                        thisdata = thisdata[0]
+                except:
+                    pass
+
+                if isinstance(thisdata, list) and (npts == len(thisdata)):
+                    datalist, units = descale_rdt(k, thisdata)
+                    mydict_tp[k].extend(datalist)
+                else:
+                    # Repeat the data value npts times
+                    datalist = [i for i in itertools.repeat(thisdata, npts)]
+                    thisdata, units = descale_rdt(k, datalist)
+                    mydict_tp[k].extend(datalist)
+
+                # Some records don't have any data. Mostly happens for ExpanRateTraj
+                if len(thisdata) == 0:
+                    datalist = [i for i in itertools.repeat('-', npts)]
+                    mydict_tp[k].extend(datalist)
+
+                # Some records seem to have missing values
+                if len(datalist) != npts:
+                    pdb.set_trace()
+
+            lats = getDataOnly(ncds.variables['LatTrajCellCG'][i, :])
+            lons = getDataOnly(ncds.variables['LonTrajCellCG'][i, :])
+            x, y = geo.web_mercator(lons, lats)
+            mydict_tp['x'].extend(x)
+            mydict_tp['y'].extend(y)
+
+        list_to_return.append(mydict_tp)
+
+    # Do specific things for each feature type
+    if type in ['Centre_Point', 'All']:
+
+        # Create an empty dictionary
+        mydict_cp = get_empty_feature_dict('Centre_Point')
+
+        for i in np.arange(ncds.dimensions['recNUM'].size):
+
+            # Get the Point features
+            lat = ncds.variables['LatG'][i, lev]
+            lon = ncds.variables['LonG'][i, lev]
+            x1, y1 = geo.web_mercator(lon, lat)
+            mydict_cp['x1'].extend(x1)
+            mydict_cp['y1'].extend(y1)
+
+            mykeys = [k for k in mydict_cp.keys() if not (('x' in k) or ('y' in k))]
+            for k in mykeys:
+                try:
+                    if k in varlev:
+                        thisdata = ncds.variables[k][i, lev]
+                    else:
+                        thisdata = ncds.variables[k][i]
+
+                    thisdata, units = descale_rdt(k, thisdata) # May not need to do this
+                    mydict_cp[k].append(thisdata)
+                except:
+                    mydict_cp[k].append(None)
+
+            # Now calculate future point and line
+            try:
+                speed = float(ncds.variables['MvtSpeed'][i])
+            except ValueError:
+                speed = 0
+            try:
+                direction = float(ncds.variables['MvtDirection'][i])
+            except ValueError:
+                direction = 0
+
+            mydict_cp = make_arrow(mydict_cp, lon, lat, speed, direction)
+
+        list_to_return.append(mydict_cp)
+
+
+    if len(list_to_return) == 1:
+        return list_to_return[0]
+    elif len(list_to_return) > 1:
+        return tuple(list_to_return)
+    else:
+        return 'Nothing to return'
+
+
+def getDataOnly(array1d):
+    '''
+    Removes redundant no data slots in a 1D array
+    Note that sometimes data is missing within the array, so in the majority of cases, the array just needs to be shortened, but in a small number of cases, the 'within array' no data needs to be replaced
+    :param array1d:
+    :return: Simple array of numbers
+    '''
+
+    if np.any(ma.getmask(array1d)):
+        mymask = np.invert(ma.getmask(array1d))
+        outarray = ma.getdata(array1d)[mymask]
+    else:
+        outarray = ma.getdata(array1d)
+
+    return outarray
+
+def update_json(props, varname, data, datatype):
+    """
+    Adds an extra field to the properties of a feature in a geojson file. Provides a consistent way to handle different data types
+    :param props: dictionary of properties
+    :param varname: string variable name
+    :param data: the data to add
+    :param datatype: datatype
+    :return: updated props
+    """
+
+    if isinstance(data, ma.MaskedArray) and (data.shape == ()) and ('int' in str(datatype)):
+        props.update({varname: np.int(ma.getdata(data))})
+
+    elif isinstance(data, ma.MaskedArray) and (data.shape == ()) and ('float' in str(datatype)):
+        props.update({varname: np.float(ma.getdata(data))})
+
+    elif isinstance(data, np.float32) or isinstance(data, np.float):
+        props.update({varname: float(data)})
+
+    elif isinstance(data, np.int) or isinstance(data, np.uint16):
+        props.update({varname: int(data)})
+
+    elif str(datatype) == 'string':
+        props.update({varname: str(data)})
+
+    else:
+        return
+
 
 
 def calc_dst_point(x1d, y1d, speed, angle):
@@ -467,6 +844,60 @@ def get_arrow_poly(x2,y2, speed, direction):
     # Calculate x3, y3
     x4, y4 = calc_dst_point(x2, y2, pt2_speed, pt2_dir)
     return x3, y3, x4, y4
+
+
+def convert_values(conv_value, conv_var):
+    """ Specific conversions for GeoJSON storage efficiency """
+
+    DP_ACCURACY = 0
+
+    if conv_var.name == 'ExpansionRate':
+        try:
+            return int(round(conv_value * 360000, DP_ACCURACY))  # to %/hr
+        except TypeError:
+            return conv_value
+
+    elif conv_var.name == 'CoolingRate':
+        try:
+            return int(round(conv_value * 3600, DP_ACCURACY))  # to K/hr
+        except TypeError:
+            return conv_value
+
+    elif conv_var.name == 'Surface':
+        try:
+            return int(round(conv_value / 1e6, DP_ACCURACY))  # to km2
+        except TypeError:
+            return conv_value
+
+    elif conv_var.name == 'CTPressure':
+        myu = cf_units.Unit('Pa')
+        try:
+            return int(round(myu.convert(conv_value, 'hPa'), DP_ACCURACY))
+        except TypeError:
+            return conv_value
+
+    elif conv_var.name == 'CRainRate':
+        try:
+            return int(round(conv_value, DP_ACCURACY)) # Round and make it an integer
+        except TypeError:
+            return conv_value
+
+    elif conv_var.name == 'CTPressRate':
+        myu = cf_units.Unit('Pa s-1')
+        try:
+            return int(round(myu.convert(conv_value, 'hPa h-1'), DP_ACCURACY)) # Pa/s to hPa/hour
+        except TypeError:
+            return conv_value
+
+    elif conv_var.name in ['BTemp', 'BTmin', 'BTmoy']:
+        myu = cf_units.Unit('K')
+        try:
+            return round(myu.convert(conv_value, 'degC'), 1)
+        except TypeError:
+            return conv_value
+
+    else:
+        return conv_value
 
 
 def descale_rdt(fn, data):
@@ -711,12 +1142,18 @@ def fieldValueLUT(fn, uid):
         return "-"
 
 
-class Locator(object):
+class Locator:
     def __init__(self, pattern):
         self.pattern = pattern
 
+    def valid_times(self):
+        """Parse file names to an array of dates"""
+        paths = self.find(self.pattern)
+        parsed_times = [self.parse_date(p) for p in paths]
+        return sorted(set(t for t in parsed_times if t is not None))
+
     def find_file(self, valid_date):
-        paths = np.array(self.paths)  # Note: timeout cache in use
+        paths = np.array(self.paths)  # Note: timeout cache in use)
         bounds = locate.bounds(
                 self.dates(paths),
                 dt.timedelta(minutes=15))
@@ -732,7 +1169,7 @@ class Locator(object):
         return self.find(self.pattern)
 
     @staticmethod
-    @timeout_cache(dt.timedelta(minutes=10))
+    @forest.util.timeout_cache(dt.timedelta(minutes=10))
     def find(pattern):
         return sorted(glob.glob(pattern))
 
@@ -743,27 +1180,13 @@ class Locator(object):
 
     @staticmethod
     def parse_date(path):
-        groups = re.search(r"[0-9]{12}", os.path.basename(path))
-        if groups is not None:
-            return dt.datetime.strptime(groups[0], "%Y%m%d%H%M")
-
-
-class Coordinates(object):
-    """Menu system interface"""
-    def initial_time(self, path):
-        times = self.valid_times(path, None)
-        if len(times) > 0:
-            return times[0]
-        return None
-
-    def variables(self, path):
-        return ["RDT"]
-
-    def valid_times(self, path, variable):
-        date = Locator.parse_date(path)
-        if date is None:
-            return []
-        return [str(date)]
-
-    def pressures(self, path, variable):
-        return None
+        if os.path.splitext(path)[1] == '.json':
+            groups = re.search(r"[0-9]{12}", os.path.basename(path))
+            if groups is not None:
+                return dt.datetime.strptime(groups[0], "%Y%m%d%H%M")
+        elif os.path.splitext(path)[1] == '.nc':
+            groups = re.search(r"[0-9]{8}T[0-9]{6}", os.path.basename(path))
+            if groups is not None:
+                return dt.datetime.strptime(groups[0], "%Y%m%dT%H%M%S")
+        else:
+            return 'Unable to parse datetime from filename'

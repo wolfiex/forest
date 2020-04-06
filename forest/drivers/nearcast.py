@@ -7,9 +7,10 @@ import glob
 import re
 import datetime as dt
 import numpy as np
+import forest.view
 from forest import geo
 from forest.util import timeout_cache
-from forest.gridded_forecast import _to_datetime
+from forest.drivers.gridded_forecast import _to_datetime
 
 try:
     import pygrib as pg
@@ -20,6 +21,20 @@ NEARCAST_TOOLTIPS = [("Name", "@name"),
                      ("Value", "@image @units"),
                      ('Valid', '@valid'),
                      ("Sigma Layer", "@layer")]
+
+
+class Dataset:
+    def __init__(self, pattern=None, **kwargs):
+        self.pattern = pattern
+
+    def navigator(self):
+        return Navigator(self.pattern)
+
+    def map_view(self, color_mapper):
+        view = forest.view.NearCast(NearCast(self.pattern), color_mapper)
+        view.set_hover_properties(NEARCAST_TOOLTIPS)
+        return view
+
 
 class NearCast(object):
     """View responsible for plotting Nearcast dataset"""

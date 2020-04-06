@@ -7,7 +7,7 @@ import bokeh.layouts
 from . import util
 from collections import namedtuple
 from forest.observe import Observable
-from forest.gridded_forecast import _to_datetime
+from forest.util import to_datetime as _to_datetime
 from forest.export import export
 from typing import List, Any
 
@@ -163,7 +163,7 @@ def initial_state(navigator, pattern=None):
 
 @export
 def reducer(state, action):
-    state = copy.copy(state)
+    state = copy.deepcopy(state)
     kind = action["kind"]
     if kind == SET_VALUE:
         payload = action["payload"]

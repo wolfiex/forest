@@ -18,20 +18,16 @@ forecasts alongside observations.
 
 .. automodule:: forest.config
 
-.. automodule:: forest.load
-
 .. automodule:: forest.geo
 
 .. automodule:: forest.presets
 
 """
-__version__ = '0.13.1'
+__version__ = '0.13.8'
 
 from .config import *
 from . import (
-        navigate,
         redux,
         tutorial)
 from .db import Database
 from .keys import *
-from .load import *
