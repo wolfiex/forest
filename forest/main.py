@@ -69,7 +69,7 @@ def main(argv=None):
     for f in figures:
         f.axis.visible = False
         f.toolbar.logo = None
-        f.toolbar_location = None
+        f.toolbar_location = "left"
         f.min_border = 0
 
     figure_row = layers.FigureRow(figures)
@@ -110,6 +110,7 @@ def main(argv=None):
 
     features = []
     for figure in figures:
+        render2 = add_feature(figure, data.LAKES, color="lightblue")
         features += [
             add_feature(figure, data.COASTLINES),
             add_feature(figure, data.BORDERS)]
@@ -117,6 +118,28 @@ def main(argv=None):
     # Disputed borders
     for figure in figures:
         add_feature(figure, data.DISPUTED, color="red")
+
+
+    for figure in figures:
+        source = bokeh.models.ColumnDataSource(data.EMPTY)
+        render2 =  figure.patches(
+            xs="xs",
+            ys="ys",
+            source=source,
+            alpha=0.3,
+            color="fuchsia")
+        tool2 = bokeh.models.tools.PolyDrawTool(
+                    renderers=[render2],
+                    )
+
+        source.add(["X"],"text")
+        render3 = bokeh.models.renderers.GlyphRenderer(data_source=source, glyph=bokeh.models.Text(x="xs", y="ys", text="text", angle=0.3, text_color="fuchsia"))
+        tool3 = bokeh.models.tools.PointDrawTool(
+                    renderers=[render3],
+                    )
+
+
+        figure.add_tools(tool2,tool3)
 
     toggle = bokeh.models.CheckboxGroup(
             labels=["Coastlines"],
@@ -244,8 +267,8 @@ def main(argv=None):
     navbar.connect(store)
 
     # Connect tap listener
-    tap_listener = screen.TapListener()
-    tap_listener.connect(store)
+    #tap_listener = screen.TapListener()
+    #tap_listener.connect(store)
 
     # Connect figure controls/views
     figure_ui = layers.FigureUI()
@@ -384,9 +407,9 @@ def main(argv=None):
     tool_layout = tools.ToolLayout(**tool_figures)
     tool_layout.connect(store)
 
-    for f in figures:
-        f.on_event(bokeh.events.Tap, tap_listener.update_xy)
-        marker = screen.MarkDraw(f).connect(store)
+    #for f in figures:
+    #    f.on_event(bokeh.events.Tap, tap_listener.update_xy)
+    #    marker = screen.MarkDraw(f).connect(store)
 
     control_root = bokeh.layouts.column(
             tabs,

@@ -53,6 +53,10 @@ DISPUTED = {
     "xs": [],
     "ys": []
 }
+EMPTY = {
+    "xs": [],
+    "ys": []
+}
 
 
 def on_server_loaded():
