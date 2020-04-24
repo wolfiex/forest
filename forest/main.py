@@ -2,6 +2,7 @@ import bokeh.plotting
 import bokeh.models
 import bokeh.events
 import bokeh.colors
+from bokeh.core.properties import value
 import numpy as np
 import os
 import glob
@@ -132,8 +133,11 @@ def main(argv=None):
                     renderers=[render2],
                     )
 
-        source.add(["X"],"text")
-        render3 = bokeh.models.renderers.GlyphRenderer(data_source=source, glyph=bokeh.models.Text(x="xs", y="ys", text="text", angle=0.3, text_color="fuchsia"))
+        #source.add([],"text")
+        #render3 = figure.circle(x="xs",y="ys",legend_label="X", source=source);
+        glyph = bokeh.models.Text(x="xs", y="ys", text=value("☃"),  text_font_size="3em", text_color="fuchsia")
+        render3 = figure.add_glyph(source, glyph)
+        #render3 = bokeh.models.renderers.GlyphRenderer(data_source=ColumnDataSource(dict(x=x, y=y, text="X")), glyph=bokeh.models.Text(x="xs", y="ys", text="text", angle=0.3, text_color="fuchsia"))
         tool3 = bokeh.models.tools.PointDrawTool(
                     renderers=[render3],
                     )
