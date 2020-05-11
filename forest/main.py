@@ -53,6 +53,7 @@ def main(argv=None):
     figure = bokeh.plotting.figure(
         x_range=x_range,
         y_range=y_range,
+        #output_backend = "svg",
         x_axis_type="mercator",
         y_axis_type="mercator",
         active_scroll="wheel_zoom")
@@ -128,18 +129,45 @@ def main(argv=None):
             ys="ys",
             source=source,
             alpha=0.3,
-            color="fuchsia")
+            color="fuchsia", level="overlay")
         tool2 = bokeh.models.tools.PolyDrawTool(
                     renderers=[render2],
                     )
 
-        #source.add([],"text")
+        source.add([],"datasize")
+        source.add([],"fontsize")
         #render3 = figure.circle(x="xs",y="ys",legend_label="X", source=source);
-        glyph = bokeh.models.Text(x="xs", y="ys", text=value("☃"),  text_font_size="3em", text_color="fuchsia")
+        starting_font_size = 90 
+        glyph = bokeh.models.Text(
+                x="xs", 
+                y="ys", 
+                text=value("🌧"),  
+                text_color="fuchsia",
+                text_font_size="fontsize")
+        #glyph.text_font_size = '%spx' % starting_font_size
+        glyph.tags = ['datasize', abs(starting_font_size / (figure.y_range.end - figure.y_range.start))]
+
         render3 = figure.add_glyph(source, glyph)
+        figure.js_on_event(bokeh.events.MouseWheel,
+        bokeh.models.CustomJS(args=dict(render3=render3, glyph=glyph, figure=figure, starting_font_size=starting_font_size),code="""
+                    //console.log(figure);
+            for(g = 0; g < render3.data_source.data['fontsize'].length; g++)
+            {
+                 if(starting_font_size == render3.data_source.data['datasize'][g])
+                 {
+                    //calculate initial datasize
+                    starting_font_proportion = starting_font_size/(figure.inner_height);
+                    render3.data_source.data['datasize'][g] = (starting_font_proportion * (figure.y_range.end - figure.y_range.start)) + 'px';
+                 }
+                 render3.data_source.data['fontsize'][g] = (parseFloat(render3.data_source.data['datasize'][g])*1500000/ (figure.y_range.end - figure.y_range.start)) + 'px';
+            }
+            glyph.change.emit();
+            """)
+        )
         #render3 = bokeh.models.renderers.GlyphRenderer(data_source=ColumnDataSource(dict(x=x, y=y, text="X")), glyph=bokeh.models.Text(x="xs", y="ys", text="text", angle=0.3, text_color="fuchsia"))
         tool3 = bokeh.models.tools.PointDrawTool(
                     renderers=[render3],
+                    empty_value='%spx' % starting_font_size,
                     )
 
 
@@ -271,8 +299,8 @@ def main(argv=None):
     navbar.connect(store)
 
     # Connect tap listener
-    #tap_listener = screen.TapListener()
-    #tap_listener.connect(store)
+    tap_listener = screen.TapListener()
+    tap_listener.connect(store)
 
     # Connect figure controls/views
     figure_ui = layers.FigureUI()
@@ -411,9 +439,9 @@ def main(argv=None):
     tool_layout = tools.ToolLayout(**tool_figures)
     tool_layout.connect(store)
 
-    #for f in figures:
-    #    f.on_event(bokeh.events.Tap, tap_listener.update_xy)
-    #    marker = screen.MarkDraw(f).connect(store)
+    for f in figures:
+        f.on_event(bokeh.events.Tap, tap_listener.update_xy)
+        marker = screen.MarkDraw(f).connect(store)
 
     control_root = bokeh.layouts.column(
             tabs,

@@ -55,7 +55,7 @@ DISPUTED = {
 }
 EMPTY = {
     "xs": [],
-    "ys": []
+    "ys": [],
 }
 
 
