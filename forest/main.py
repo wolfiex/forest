@@ -137,7 +137,7 @@ def main(argv=None):
         source.add([],"datasize")
         source.add([],"fontsize")
         #render3 = figure.circle(x="xs",y="ys",legend_label="X", source=source);
-        starting_font_size = 90 
+        starting_font_size = 30 #in pixels 
         glyph = bokeh.models.Text(
                 x="xs", 
                 y="ys", 
@@ -145,21 +145,20 @@ def main(argv=None):
                 text_color="fuchsia",
                 text_font_size="fontsize")
         #glyph.text_font_size = '%spx' % starting_font_size
-        glyph.tags = ['datasize', abs(starting_font_size / (figure.y_range.end - figure.y_range.start))]
+        glyph.tags = ['datasize', starting_font_size]
 
         render3 = figure.add_glyph(source, glyph)
         figure.js_on_event(bokeh.events.MouseWheel,
         bokeh.models.CustomJS(args=dict(render3=render3, glyph=glyph, figure=figure, starting_font_size=starting_font_size),code="""
-                    //console.log(figure);
             for(g = 0; g < render3.data_source.data['fontsize'].length; g++)
             {
-                 if(starting_font_size == render3.data_source.data['datasize'][g])
+                 if(starting_font_size + 'px' == render3.data_source.data['datasize'][g])
                  {
                     //calculate initial datasize
                     starting_font_proportion = starting_font_size/(figure.inner_height);
-                    render3.data_source.data['datasize'][g] = (starting_font_proportion * (figure.y_range.end - figure.y_range.start)) + 'px';
+                    render3.data_source.data['datasize'][g] = (starting_font_proportion * (figure.y_range.end - figure.y_range.start));
                  }
-                 render3.data_source.data['fontsize'][g] = (parseFloat(render3.data_source.data['datasize'][g])*1500000/ (figure.y_range.end - figure.y_range.start)) + 'px';
+                 render3.data_source.data['fontsize'][g] = (parseFloat(render3.data_source.data['datasize'][g])/ (figure.y_range.end - figure.y_range.start))*figure.inner_height + 'px';
             }
             glyph.change.emit();
             """)
