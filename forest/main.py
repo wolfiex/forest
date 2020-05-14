@@ -124,34 +124,37 @@ def main(argv=None):
 
     for figure in figures:
         source = bokeh.models.ColumnDataSource(data.EMPTY)
-        render2 =  figure.patches(
+        render2 =  figure.multi_line(
             xs="xs",
             ys="ys",
             source=source,
             alpha=0.3,
             color="fuchsia", level="overlay")
-        tool2 = bokeh.models.tools.PolyDrawTool(
+        tool2 = bokeh.models.tools.FreehandDrawTool(
                     renderers=[render2],
                     )
 
         source.add([],"datasize")
         source.add([],"fontsize")
+        source.add([],"colour")
         #render3 = figure.circle(x="xs",y="ys",legend_label="X", source=source);
         starting_font_size = 30 #in pixels 
         glyph = bokeh.models.Text(
                 x="xs", 
                 y="ys", 
                 text=value("🌧"),  
-                text_color="fuchsia",
+                text_color="colour",
                 text_font_size="fontsize")
         #glyph.text_font_size = '%spx' % starting_font_size
         glyph.tags = ['datasize', starting_font_size]
 
         render3 = figure.add_glyph(source, glyph)
-        figure.js_on_event(bokeh.events.MouseWheel,
+        figure.y_range.js_on_change('start',
         bokeh.models.CustomJS(args=dict(render3=render3, glyph=glyph, figure=figure, starting_font_size=starting_font_size),code="""
+
             for(g = 0; g < render3.data_source.data['fontsize'].length; g++)
             {
+                 render3.data_source.data['colour'][g] = "olive";
                  if(starting_font_size + 'px' == render3.data_source.data['datasize'][g])
                  {
                     //calculate initial datasize
