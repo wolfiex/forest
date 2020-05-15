@@ -182,10 +182,11 @@ def main(argv=None):
         barc_tools = [tool2,tool3]
         #figure.tools = barc_tools
         figure.add_tools(*barc_tools)
-        toolBarBox = bokeh.models.tools.ToolbarBox(
-            toolbar = bokeh.models.tools.Toolbar(tools=barc_tools),
-            toolbar_location = "left"
-            )
+        #barc_toolbar=bokeh.models.tools.Toolbar(tools=barc_tools,logo=None)
+    toolBarBox = bokeh.models.tools.ToolbarBox(
+        toolbar = figures[0].toolbar,
+        toolbar_location = "above"
+        )
 
     toggle = bokeh.models.CheckboxGroup(
             labels=["Coastlines"],
