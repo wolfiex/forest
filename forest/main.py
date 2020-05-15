@@ -71,7 +71,7 @@ def main(argv=None):
     for f in figures:
         f.axis.visible = False
         f.toolbar.logo = None
-        f.toolbar_location = "left"
+        f.toolbar_location = None
         f.min_border = 0
 
     figure_row = layers.FigureRow(figures)
@@ -123,20 +123,27 @@ def main(argv=None):
 
 
     for figure in figures:
-        source = bokeh.models.ColumnDataSource(data.EMPTY)
+        source1 = bokeh.models.ColumnDataSource(data.EMPTY)
         render2 =  figure.multi_line(
             xs="xs",
             ys="ys",
-            source=source,
+            source=source1,
             alpha=0.3,
-            color="fuchsia", level="overlay")
-        tool2 = bokeh.models.tools.FreehandDrawTool(
-                    renderers=[render2],
+            color="red", level="overlay")
+        render21 = figure.circle(
+                [],
+                [],
+            alpha=0.3,
+            color="red", level="overlay")
+        tool2 = bokeh.models.tools.PolyDrawTool(
+                    renderers=[render2], 
+                    vertex_renderer=render21,
                     )
 
-        source.add([],"datasize")
-        source.add([],"fontsize")
-        source.add([],"colour")
+        source2 = bokeh.models.ColumnDataSource(data.EMPTY)
+        source2.add([],"datasize")
+        source2.add([],"fontsize")
+        source2.add([],"colour")
         #render3 = figure.circle(x="xs",y="ys",legend_label="X", source=source);
         starting_font_size = 30 #in pixels 
         glyph = bokeh.models.Text(
@@ -148,7 +155,7 @@ def main(argv=None):
         #glyph.text_font_size = '%spx' % starting_font_size
         glyph.tags = ['datasize', starting_font_size]
 
-        render3 = figure.add_glyph(source, glyph)
+        render3 = figure.add_glyph(source2, glyph)
         figure.y_range.js_on_change('start',
         bokeh.models.CustomJS(args=dict(render3=render3, glyph=glyph, figure=figure, starting_font_size=starting_font_size),code="""
 
@@ -172,8 +179,13 @@ def main(argv=None):
                     empty_value='%spx' % starting_font_size,
                     )
 
-
-        figure.add_tools(tool2,tool3)
+        barc_tools = [tool2,tool3]
+        #figure.tools = barc_tools
+        figure.add_tools(*barc_tools)
+        toolBarBox = bokeh.models.tools.ToolbarBox(
+            toolbar = bokeh.models.tools.Toolbar(tools=barc_tools),
+            toolbar_location = "left"
+            )
 
     toggle = bokeh.models.CheckboxGroup(
             labels=["Coastlines"],
@@ -295,6 +307,8 @@ def main(argv=None):
 
     tools_panel = tools.ToolsPanel(available_features)
     tools_panel.connect(store)
+    if toolBarBox:
+        tools_panel.layout.children.append(toolBarBox)
 
     # Navbar components
     navbar = Navbar(show_diagram_button=len(available_features) > 0)
