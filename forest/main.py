@@ -3,12 +3,11 @@ import bokeh.models
 import bokeh.events
 import bokeh.colors
 from bokeh.core.properties import value
-import numpy as np
 import os
-import glob
 from forest import _profile as profile
 from forest import (
         drivers,
+        dimension,
         screen,
         tools,
         series,
@@ -27,13 +26,14 @@ import forest.components
 from forest.components import tiles
 import forest.config as cfg
 import forest.middlewares as mws
-from forest.observe import Observable
 from forest.db.util import autolabel
-import datetime as dt
 
 
 def main(argv=None):
+
     args = parse_args.parse_args(argv)
+    data.AUTO_SHUTDOWN = args.auto_shutdown
+    
     if len(args.files) > 0:
         if args.config_file is not None:
             raise Exception('--config-file and [FILE [FILE ...]] not compatible')
@@ -84,27 +84,22 @@ def main(argv=None):
     # Colorbar user interface
     colorbar_ui = forest.components.ColorbarUI(color_mapper)
 
-    renderers = {}
-    viewers = {}
+    # Convert config to datasets
+    datasets = {}
+    datasets_by_pattern = {}
+    label_to_pattern = {}
     for group in config.file_groups:
         settings = {
             "label": group.label,
             "pattern": group.pattern,
             "locator": group.locator,
             "database_path": group.database_path,
-            "color_mapper": color_mapper,
+            "directory": group.directory
         }
         dataset = drivers.get_dataset(group.file_type, settings)
-        viewer = dataset.map_view()
-        viewers[group.label] = viewer
-        renderers[group.label] = [
-                viewer.add_figure(f)
-                for f in figures]
-
-    image_sources = []
-    for name, viewer in viewers.items():
-        for source in getattr(viewer, "image_sources", []):
-            image_sources.append(source)
+        datasets[group.label] = dataset
+        datasets_by_pattern[group.pattern] = dataset
+        label_to_pattern[group.label] = group.pattern
 
     # Lakes
     for figure in figures:
@@ -217,35 +212,7 @@ def main(argv=None):
 
     dropdown.on_change("value", on_change)
 
-    # Image opacity user interface (client-side)
-    slider = bokeh.models.Slider(
-        start=0,
-        end=1,
-        step=0.1,
-        value=1.0,
-        show_value=False)
-
-    def is_image(renderer):
-        return isinstance(getattr(renderer, 'glyph', None), bokeh.models.Image)
-
-    renderers_list = []
-    for _, r in renderers.items():
-        renderers_list += r
-    image_renderers = [r for r in renderers_list if is_image(r)]
-    custom_js = bokeh.models.CustomJS(
-            args=dict(renderers=image_renderers),
-            code="""
-            renderers.forEach(function (r) {
-                r.glyph.global_alpha = cb_obj.value
-            })
-            """)
-    slider.js_on_change("value", custom_js)
-
-    menu = []
-    for k, _ in config.patterns:
-        menu.append((k, k))
-
-    layers_ui = layers.LayersUI(menu)
+    layers_ui = layers.LayersUI()
 
     div = bokeh.models.Div(text="", width=10)
     border_row = bokeh.layouts.row(
@@ -254,11 +221,16 @@ def main(argv=None):
         bokeh.layouts.column(dropdown))
 
 
-    navigator = navigate.Navigator(config, color_mapper=color_mapper)
+    # Add optional sub-navigators
+    sub_navigators = {
+        key: dataset.navigator() for key, dataset in datasets_by_pattern.items()
+        if hasattr(dataset, "navigator")
+    }
+    navigator = navigate.Navigator(sub_navigators)
 
     # Pre-select menu choices (if any)
     initial_state = {}
-    for _, pattern in config.patterns:
+    for pattern, _ in sub_navigators.items():
         initial_state = db.initial_state(navigator, pattern=pattern)
         break
 
@@ -267,11 +239,13 @@ def main(argv=None):
         keys.navigate,
         db.InverseCoordinate("pressure"),
         db.next_previous,
-        db.Controls(navigator),
+        db.Controls(navigator),  # TODO: Deprecate this middleware
         colors.palettes,
+        colors.middleware(),
         presets.Middleware(presets.proxy_storage(config.presets_file)),
         presets.middleware,
         layers.middleware,
+        navigator,
     ]
     store = redux.Store(
         redux.combine_reducers(
@@ -280,8 +254,10 @@ def main(argv=None):
             screen.reducer,
             tools.reducer,
             colors.reducer,
+            colors.limits_reducer,
             presets.reducer,
-            tiles.reducer),
+            tiles.reducer,
+            dimension.reducer),
         initial_state=initial_state,
         middlewares=middlewares)
 
@@ -289,9 +265,15 @@ def main(argv=None):
     time_ui = forest.components.TimeUI()
     time_ui.connect(store)
 
-    # Connect renderer.visible states to store
-    artist = layers.Artist(renderers)
-    artist.connect(store)
+    # Connect MapView orchestration to store
+    opacity_slider = forest.layers.OpacitySlider()
+    source_limits = colors.SourceLimits().connect(store)
+    factory_class = forest.layers.factory(color_mapper,
+                                          figures,
+                                          source_limits,
+                                          opacity_slider)
+    gallery = forest.layers.Gallery.from_datasets(datasets, factory_class)
+    gallery.connect(store)
 
     # Connect layers controls
     layers_ui.add_subscriber(store.dispatch)
@@ -335,9 +317,6 @@ def main(argv=None):
     color_palette = colors.ColorPalette(color_mapper).connect(store)
 
     # Connect limit controllers to store
-    source_limits = colors.SourceLimits(image_sources)
-    source_limits.add_subscriber(store.dispatch)
-
     user_limits = colors.UserLimits().connect(store)
 
     # Preset
@@ -347,10 +326,9 @@ def main(argv=None):
     controls = db.ControlView()
     controls.connect(store)
 
-    # Connect views to state changes
-    connector = layers.ViewerConnector().connect(store)
-    for label, viewer in viewers.items():
-        connector.add_label_subscriber(label, viewer.render)
+    # Add support for a modal dialogue
+    modal = forest.components.Modal()
+    modal.connect(store)
 
     # Set default time series visibility
     store.dispatch(tools.on_toggle_tool("time_series", False))
@@ -361,12 +339,23 @@ def main(argv=None):
     # Set top-level navigation
     store.dispatch(db.set_value("patterns", config.patterns))
 
-    # Pre-select first layer
-    for name, _ in config.patterns:
-        row_index = 0
-        store.dispatch(layers.set_label(row_index, name))
-        store.dispatch(layers.set_active(row_index, [0]))
+    # Pre-select first map_view layer
+    for label, dataset in datasets.items():
+        pattern = label_to_pattern[label]
+        for variable in navigator.variables(pattern):
+            spec = {"label": label,
+                    "dataset": label,
+                    "variable": variable,
+                    "active": [0]}
+            store.dispatch(forest.layers.save_layer(0, spec))
+            break
         break
+
+    # Set variable dimensions (needed by modal dialogue)
+    for label, dataset in datasets.items():
+        pattern = label_to_pattern[label]
+        values = navigator.variables(pattern)
+        store.dispatch(dimension.set_variables(label, values))
 
     # Select web map tiling
     if config.use_web_map_tiles:
@@ -385,7 +374,7 @@ def main(argv=None):
     ]
     layouts["settings"] = [
         border_row,
-        bokeh.layouts.row(slider),
+        opacity_slider.layout,
         preset_ui.layout,
         color_palette.layout,
         user_limits.layout,
@@ -486,6 +475,7 @@ def main(argv=None):
         bokeh.layouts.row(colorbar_ui.layout, name="colorbar"))
     document.add_root(figure_row.layout)
     document.add_root(key_press.hidden_button)
+    document.add_root(modal.layout)
 
 
 class Navbar:
