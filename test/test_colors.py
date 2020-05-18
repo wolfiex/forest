@@ -6,6 +6,46 @@ import bokeh.models
 import numpy as np
 
 
+@pytest.mark.parametrize("given,expect", [
+    pytest.param({}, colors.ColorSpec()),
+    pytest.param({
+        "limits": {
+            "origin": "user",
+            "user": {
+                "high": 100,
+                "low": 42
+            }
+        }
+    }, colors.ColorSpec(low=42, high=100)),
+    pytest.param({
+        "limits": {
+            "origin": "column_data_source",
+            "user": {
+                "high": 100,
+                "low": 42
+            },
+            "column_data_source": {
+                "high": 5,
+                "low": 4
+            }
+        }
+    }, colors.ColorSpec(low=4, high=5)),
+    pytest.param({
+        "name": "Accent",
+        "number": 3,
+        "reverse": True,
+        "invisible_min": True,
+        "invisible_max": True,
+    }, colors.ColorSpec(name="Accent",
+                        number=3,
+                        reverse=True,
+                        low_visible=False,
+                        high_visible=False)),
+])
+def test_parse_color_spec(given, expect):
+    assert colors.parse_color_spec(given) == expect
+
+
 @pytest.fixture
 def listener():
     return unittest.mock.Mock()
@@ -81,16 +121,17 @@ def test_defaults():
 
 def test_color_controls():
     color_mapper = bokeh.models.LinearColorMapper()
-    controls = colors.ColorPalette(color_mapper)
+    controls = colors.ColorMapperView(color_mapper)
     controls.render({"name": "Accent", "number": 3})
-    assert color_mapper.palette == ['#7fc97f', '#beaed4', '#fdc086']
+    assert color_mapper.palette == ('#7fc97f', '#beaed4', '#fdc086')
 
 
 def test_controls_on_name(listener):
-    color_mapper = bokeh.models.LinearColorMapper()
-    controls = colors.ColorPalette(color_mapper)
+    event = Mock()
+    event.item = 5
+    controls = colors.ColorPalette()
     controls.add_subscriber(listener)
-    controls.on_number(None, None, 5)
+    controls.on_number(event)
     listener.assert_called_once_with(colors.set_palette_number(5))
 
 
@@ -143,16 +184,16 @@ def test_palette_numbers(name, expect):
 
 
 def test_controls_on_number(listener):
-    color_mapper = bokeh.models.LinearColorMapper()
-    controls = colors.ColorPalette(color_mapper)
+    event = Mock()
+    event.item = 5
+    controls = colors.ColorPalette()
     controls.add_subscriber(listener)
-    controls.on_number(None, None, 5)
+    controls.on_number(event)
     listener.assert_called_once_with(colors.set_palette_number(5))
 
 
 def test_controls_on_reverse(listener):
-    color_mapper = bokeh.models.LinearColorMapper()
-    controls = colors.ColorPalette(color_mapper)
+    controls = colors.ColorPalette()
     controls.add_subscriber(listener)
     controls.on_reverse(None, None, [0])
     listener.assert_called_once_with(colors.set_reverse(True))
@@ -165,15 +206,13 @@ def test_controls_on_reverse(listener):
     ("names", {"name": "Blues", "number": 5}, "Blues")
 ])
 def test_controls_render_label(key, props, label):
-    color_mapper = bokeh.models.LinearColorMapper()
-    controls = colors.ColorPalette(color_mapper)
+    controls = colors.ColorPalette()
     controls.render(props)
     assert controls.dropdowns[key].label == label
 
 
 def test_controls_render_sets_menu():
-    color_mapper = bokeh.models.LinearColorMapper()
-    controls = colors.ColorPalette(color_mapper)
+    controls = colors.ColorPalette()
     names = ["A", "B"]
     numbers = [1, 2]
     props = {"names": names, "numbers": numbers}
@@ -185,15 +224,14 @@ def test_controls_render_sets_menu():
 
 
 @pytest.mark.parametrize("props,palette", [
-        ({}, None),
         ({"name": "Accent", "number": 3},
-            ["#7fc97f", "#beaed4", "#fdc086"]),
+            ("#7fc97f", "#beaed4", "#fdc086")),
         ({"name": "Accent", "number": 3, "reverse": True},
-            ["#fdc086", "#beaed4", "#7fc97f"])
+            ("#fdc086", "#beaed4", "#7fc97f"))
     ])
 def test_controls_render_palette(props, palette):
     color_mapper = bokeh.models.LinearColorMapper()
-    controls = colors.ColorPalette(color_mapper)
+    controls = colors.ColorMapperView(color_mapper)
     controls.render(props)
     assert color_mapper.palette == palette
 
@@ -204,8 +242,7 @@ def test_controls_render_palette(props, palette):
     ({"reverse": True}, [0]),
 ])
 def test_color_palette_render_checkbox(props, active):
-    color_mapper = bokeh.models.LinearColorMapper()
-    color_palette = colors.ColorPalette(color_mapper)
+    color_palette = colors.ColorPalette()
     color_palette.render(props)
     assert color_palette.checkbox.active == active
 
@@ -257,9 +294,8 @@ def test_remove_source():
 
 
 def test_render_called_once_with_two_identical_settings():
-    color_mapper = bokeh.models.LinearColorMapper()
     store = redux.Store(colors.reducer)
-    controls = colors.ColorPalette(color_mapper)
+    controls = colors.ColorPalette()
     controls.render = unittest.mock.Mock()
     controls.connect(store)
     for action in [
@@ -271,12 +307,11 @@ def test_render_called_once_with_two_identical_settings():
 
 def test_render_called_once_with_non_relevant_settings():
     """Render should only happen when relevant state changes"""
-    color_mapper = bokeh.models.LinearColorMapper()
     store = redux.Store(
             redux.combine_reducers(
                 db.reducer,
                 colors.reducer))
-    controls = colors.ColorPalette(color_mapper)
+    controls = colors.ColorPalette()
     controls.render = unittest.mock.Mock()
     controls.connect(store)
     for action in [

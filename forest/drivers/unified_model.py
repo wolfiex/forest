@@ -15,6 +15,7 @@ from forest import (
     view)
 from forest.exceptions import SearchFail, PressuresNotFound
 from forest.drivers import gridded_forecast
+import bokeh.models
 try:
     import iris
 except ImportError:
@@ -50,10 +51,9 @@ class Dataset:
         else:
             return Navigator(self.pattern)
 
-    def map_view(self, color_mapper):
-        return view.UMView(Loader(self.label,
-                                  self.pattern,
-                                  self.locator), color_mapper)
+    def map_view(self, color_mapper=None):
+        loader = Loader(self.label, self.pattern, self.locator)
+        return view.map_view(loader, color_mapper)
 
 
 class Navigator:
@@ -212,7 +212,7 @@ class Loader:
         if lons.ndim == 2:
             lats = lats[:, 0]
         values = cube.data[pts]
-        return lons, lats, values, units
+        return lons, lats, values, str(units)  # Needed for tutorial data
 
 
 class Locator(object):

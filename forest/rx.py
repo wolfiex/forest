@@ -40,9 +40,10 @@ class Stream(Observable):
         self.add_subscriber(callback)
         return stream
 
-    def distinct(self):
+    def distinct(self, comparator=None):
         """Remove repeated items
 
+        :param comparator: f(x, y) that returns True if x == y
         :returns: new stream with duplicate events removed
         """
         stream = Stream()
@@ -56,7 +57,12 @@ class Stream(Observable):
                     y = x  # Important: must be before notify() to prevent recursion
                     stream.notify(x)
                     called = True
-                if x != y:
+                    return
+                if comparator is None:
+                    not_same = x != y
+                else:
+                    not_same = not comparator(x, y)
+                if not_same:
                     y = x  # Important: must be before notify() to prevent recursion
                     stream.notify(x)
             return callback
@@ -75,3 +81,20 @@ class Stream(Observable):
                 stream.notify(x)
         self.add_subscriber(callback)
         return stream
+
+    @classmethod
+    def combine_latest(cls, *input_streams):
+        output = cls()
+        payload = len(input_streams) * [None]
+
+        def callback(i):
+            def wrapper(x):
+                nonlocal payload
+                payload[i] = x
+                output.notify(tuple(payload))
+            return wrapper
+
+        for i, stream in enumerate(input_streams):
+            stream.add_subscriber(callback(i))
+
+        return output

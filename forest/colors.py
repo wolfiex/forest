@@ -99,6 +99,127 @@ import numpy as np
 from forest.observe import Observable
 from forest.rx import Stream
 from forest.db.util import autolabel
+from dataclasses import dataclass, asdict
+
+
+def colorbar_figure(color_mapper, plot_width=500):
+    # Dimensions
+    padding = 5
+    margin = 20
+    colorbar_height = 20
+    plot_height = colorbar_height + 30
+
+    # Colorbar
+    colorbar = bokeh.models.ColorBar(
+        color_mapper=color_mapper,
+        location=(0, 0),
+        height=colorbar_height,
+        width=int(plot_width - (margin + padding)),
+        padding=padding,
+        orientation="horizontal",
+        major_tick_line_color="black",
+        bar_line_color="black",
+        background_fill_alpha=0.,
+    )
+    colorbar.title = ""
+
+    # Figure
+    figure = bokeh.plotting.figure(
+        plot_height=plot_height,
+        plot_width=plot_width,
+        toolbar_location=None,
+        min_border=0,
+        background_fill_alpha=0,
+        border_fill_alpha=0,
+        outline_line_color=None,
+    )
+    figure.axis.visible = False
+    figure.add_layout(colorbar, 'center')
+    return figure
+
+
+
+@dataclass
+class ColorSpec:
+    """Specifies color mapper settings"""
+    name: str = "Greys"
+    number: int = 256
+    reverse: bool = False
+    low: float = 0.
+    low_visible: bool = True
+    high: float = 1.
+    high_visible: bool = True
+
+    def __post_init__(self):
+        if self.name == "Palettes":
+            self.name = "Greys"
+        try:
+            self.number = int(self.number)
+        except ValueError:
+            self.number = 256
+        self.low = float(self.low)
+        self.high = float(self.high)
+
+    @property
+    def palette(self):
+        if self.reverse:
+            step = -1
+        else:
+            step = 1
+        return bokeh.palettes.all_palettes[self.name][self.number][::step]
+
+    @property
+    def high_color(self):
+        if self.high_visible:
+            return None
+        else:
+            return bokeh.colors.RGB(0, 0, 0, a=0)
+
+    @property
+    def low_color(self):
+        if self.low_visible:
+            return None
+        else:
+            return bokeh.colors.RGB(0, 0, 0, a=0)
+
+    def apply(self, color_mapper):
+        """Helper to apply settings to color_mapper"""
+        color_mapper.palette = self.palette
+        color_mapper.low = self.low
+        color_mapper.low_color = self.low_color
+        color_mapper.high = self.high
+        color_mapper.high_color = self.high_color
+
+
+def parse_color_spec(props):
+    kwargs = {}
+
+    # Palette
+    if "name" in props:
+        kwargs["name"] = props["name"]
+    if "number" in props:
+        kwargs["number"] = props["number"]
+    if "reverse" in props:
+        kwargs["reverse"] = props["reverse"]
+    if "invisible_min" in props:
+        kwargs["low_visible"] = not props["invisible_min"]
+    if "invisible_max" in props:
+        kwargs["high_visible"] = not props["invisible_max"]
+
+    # Limits
+    origin = props.get("limits", {}).get("origin", "column_data_source")
+    attrs = props.get("limits", {}).get(origin, {})
+    if "low" in attrs:
+        try:
+            kwargs["low"] = float(attrs["low"])
+        except ValueError:
+            pass
+    if "high" in attrs:
+        try:
+            kwargs["high"] = float(attrs["high"])
+        except ValueError:
+            pass
+    return ColorSpec(**kwargs)
 
 
 SET_INVISIBLE = "SET_INVISIBLE"
@@ -480,6 +601,36 @@ class UserLimits(Observable):
         origin = {1: "user"}.get(new, "column_data_source")
         self.notify(set_limits_origin(origin))
 
+    def props(self):
+        """Helper to get current state of widgets"""
+        _props = {
+            "limits": {
+                "origin": {
+                    0: "column_data_source",
+                    1: "user"
+                }[self.radio_group.active],
+                "user": {},
+                "column_data_source": {},
+            }
+        }
+
+        # User inputs
+        if self.inputs["high"].value is not None:
+            _props["limits"]["user"]["high"] = self.inputs["high"].value
+        if self.inputs["low"].value is not None:
+            _props["limits"]["user"]["low"] = self.inputs["low"].value
+
+        # ColumnDataSource inputs
+        if self.inputs["source_high"].value is not None:
+            _props["limits"]["column_data_source"]["high"] = self.inputs["source_high"].value
+        if self.inputs["source_low"].value is not None:
+            _props["limits"]["column_data_source"]["low"] = self.inputs["source_low"].value
+
+        # Invisible min/max
+        for key in ("invisible_min", "invisible_max"):
+            _props[key] = len(self.checkboxes[key].active) == 1
+        return _props
+
     def render(self, props):
         """Update user-defined limits inputs"""
         for key in ["invisible_min", "invisible_max"]:
@@ -503,6 +654,13 @@ class UserLimits(Observable):
             self.inputs["source_high"].value = str(attrs["high"])
         if "low" in attrs:
             self.inputs["source_low"].value = str(attrs["low"])
+
+        # Sync radio group
+        origin = props.get("limits", {}).get("origin", "column_data_source")
+        if origin == "column_data_source":
+            self.radio_group.active = 0
+        else:
+            self.radio_group.active = 1
 
 
 def state_to_props(state):
@@ -528,6 +686,10 @@ def connect(view, store):
     props and filters out duplicates.
     """
     view.add_subscriber(store.dispatch)
+    one_way_connect(view, store)
+
+
+def one_way_connect(view, store):
     stream = (Stream()
                 .listen_to(store)
                 .map(state_to_props)
@@ -536,16 +698,131 @@ def connect(view, store):
     stream.map(lambda props: view.render(props))
 
 
-class ColorPalette(Observable):
-    """Color palette user interface"""
+class ColorMapperView:
     def __init__(self, color_mapper):
         self.color_mapper = color_mapper
+
+    def connect(self, store):
+        """Connect component to Store"""
+        one_way_connect(self, store)
+        return self
+
+    def render(self, props):
+        if isinstance(props, ColorSpec):
+            spec = props
+        else:
+            spec = parse_color_spec(props)
+        spec.apply(self.color_mapper)
+        return
+
+
+class ColorPaletteJS:
+    """Client-side ColorPalette selector"""
+    def __init__(self):
+        self.widths = {
+            "select": 140,
+            "div": 300
+        }
+        # Map palettes to ColumnDataSource
+        names, numbers = [], []
+        for name, palettes in sorted(bokeh.palettes.all_palettes.items()):
+            for number in sorted(palettes.keys()):
+                names.append(name)
+                numbers.append(number)
+        self.source = bokeh.models.ColumnDataSource({
+            "names": names,
+            "numbers": numbers
+        })
+
+        # Figure to display color bar preview
+        self.color_mapper = bokeh.models.LinearColorMapper(
+            palette="Greys256",
+            low=0,
+            high=1)
+        self.figure = colorbar_figure(self.color_mapper,
+                                      plot_width=320)
+
+        # Wire up select widgets
+        self.selects = {
+            "name": bokeh.models.Select(width=self.widths["select"]),
+            "number": bokeh.models.Select(width=self.widths["select"]),
+        }
+        self.selects["name"].options = ["Please specify"] + list(sorted(set(names)))
+        self.selects["name"].value = "Please specify"
+        self.selects["number"].options = ["Please specify"]
+        self.selects["number"].value = "Please specify"
+        custom_js = bokeh.models.CustomJS(args=dict(
+                source=self.source,
+                select=self.selects["number"]), code="""
+            let name = cb_obj.value
+            let names = source.data["names"]
+            let numbers = source.data["numbers"]
+            let options = ["Please specify"]
+            for (let i=0; i<names.length; i++) {
+                if (names[i] == name) {
+                    options.push(numbers[i].toString())
+                }
+            }
+            select.options = options
+        """)
+        self.selects["name"].js_on_change("value", custom_js)
+
+
+        # Preview figure
+        self.selects["name"].on_change("value", self.on_preview)
+        self.selects["number"].on_change("value", self.on_preview)
+
+        # Reverse checkbox
+        self.checkboxes = {}
+        self.checkboxes["reverse"] = bokeh.models.CheckboxGroup(
+            labels=["Reverse"],
+            active=[])
+        self.checkboxes["reverse"].on_change("active", self.on_preview)
+
+        self.layout = bokeh.layouts.column(
+            bokeh.models.Div(text="Color palette:",
+                             width=self.widths["div"]),
+            self.figure,
+            bokeh.layouts.row(
+                self.selects["name"],
+                self.selects["number"]),
+            self.checkboxes["reverse"])
+
+    def on_preview(self, attr, old, new):
+        spec = ColorSpec(**self.props())
+        try:
+            spec.apply(self.color_mapper)
+        except KeyError:
+            pass
+
+    def props(self):
+        """Useful for aggregating form data"""
+        _props = {}
+        for key, select in self.selects.items():
+            if select.value is not None:
+                _props[key] = select.value
+        _props["reverse"] = len(self.checkboxes["reverse"].active) == 1
+        return _props
+
+    def render(self, props):
+        for key, select in self.selects.items():
+            if key in props:
+                select.value = str(props[key])
+        self.checkboxes["reverse"].active = {
+            True: [0],
+            False: []
+        }[props.get("reverse", False)]
+
+
+class ColorPalette(Observable):
+    """Color palette user interface"""
+    def __init__(self):
         self.dropdowns = {
             "names": bokeh.models.Dropdown(label="Palettes"),
             "numbers": bokeh.models.Dropdown(label="N")
         }
-        self.dropdowns["names"].on_change("value", self.on_name)
-        self.dropdowns["numbers"].on_change("value", self.on_number)
+        self.dropdowns["names"].on_click(self.on_name)
+        self.dropdowns["numbers"].on_click(self.on_number)
 
         self.checkbox = bokeh.models.CheckboxGroup(
             labels=["Reverse"],
@@ -564,13 +841,21 @@ class ColorPalette(Observable):
         connect(self, store)
         return self
 
-    def on_name(self, attr, old, new):
-        """Event-handler when a palette name is selected"""
-        self.notify(set_palette_name(new))
+    def props(self):
+        """Helper to get widget settings"""
+        return {
+            "name": self.dropdowns["names"].label,
+            "number": self.dropdowns["numbers"].label,
+            "reverse": len(self.checkbox.active) == 1
+        }
 
-    def on_number(self, attr, old, new):
+    def on_name(self, event):
+        """Event-handler when a palette name is selected"""
+        self.notify(set_palette_name(event.item))
+
+    def on_number(self, event):
         """Event-handler when a palette number is selected"""
-        self.notify(set_palette_number(int(new)))
+        self.notify(set_palette_number(int(event.item)))
 
     def on_reverse(self, attr, old, new):
         """Event-handler when reverse toggle is changed"""
@@ -579,18 +864,13 @@ class ColorPalette(Observable):
     def render(self, props):
         """Render component from properties derived from state"""
         assert isinstance(props, dict), "only support dict"
+
+        spec = parse_color_spec(props)
         if "name" in props:
-            self.dropdowns["names"].label = props["name"]
+            self.dropdowns["names"].label = spec.name
         if "number" in props:
-            self.dropdowns["numbers"].label = str(props["number"])
-        if ("name" in props) and ("number" in props):
-            name = props["name"]
-            number = props["number"]
-            reverse = props.get("reverse", False)
-            palette = self.palette(name, number)
-            if reverse:
-                palette = palette[::-1]
-            self.color_mapper.palette = palette
+            self.dropdowns["numbers"].label = str(spec.number)
+
         if "names" in props:
             values = props["names"]
             self.dropdowns["names"].menu = list(zip(values, values))
@@ -598,39 +878,8 @@ class ColorPalette(Observable):
             values = [str(n) for n in props["numbers"]]
             self.dropdowns["numbers"].menu = list(zip(values, values))
 
-        # Set color_mapper low/high from either user/data limits
-        origin = props.get("limits", {}).get("origin", "column_data_source")
-        attrs = props.get("limits", {}).get(origin, {})
-        if "low" in attrs:
-            try:
-                self.color_mapper.low = float(attrs["low"])
-            except ValueError:
-                pass
-        if "high" in attrs:
-            try:
-                self.color_mapper.high = float(attrs["high"])
-            except ValueError:
-                pass
-
-        invisible_min = props.get("invisible_min", False)
-        if invisible_min:
-            color = bokeh.colors.RGB(0, 0, 0, a=0)
-            self.color_mapper.low_color = color
-        else:
-            self.color_mapper.low_color = None
-        invisible_max = props.get("invisible_max", False)
-        if invisible_max:
-            color = bokeh.colors.RGB(0, 0, 0, a=0)
-            self.color_mapper.high_color = color
-        else:
-            self.color_mapper.high_color = None
-
-        # Render reverse checkbox state
-        if props.get("reverse", False):
+        # Render checkbox state
+        if spec.reverse:
             self.checkbox.active = [0]
         else:
             self.checkbox.active = []
-
-    @staticmethod
-    def palette(name, number):
-        return bokeh.palettes.all_palettes[name][number]

@@ -17,6 +17,7 @@ from forest import (
         layers,
         db,
         keys,
+        plugin,
         presets,
         redux,
         rx,
@@ -44,6 +45,13 @@ def main(argv=None):
                 variables=cfg.combine_variables(
                     os.environ,
                     args.variables))
+
+    # Feature toggles
+    if "feature" in config.plugins:
+        features = plugin.call(config.plugins["feature"].entry_point)
+    else:
+        features = config.features
+    data.FEATURE_FLAGS = features
 
     # Full screen map
     viewport = config.default_viewport
@@ -80,9 +88,6 @@ def main(argv=None):
             low=0,
             high=1,
             palette=bokeh.palettes.Plasma[256])
-
-    # Colorbar user interface
-    colorbar_ui = forest.components.ColorbarUI(color_mapper)
 
     # Convert config to datasets
     datasets = {}
@@ -206,11 +211,11 @@ def main(argv=None):
             width=50)
     autolabel(dropdown)
 
-    def on_change(attr, old, new):
+    def on_change(event):
         for feature in features:
             feature.glyph.line_color = new
 
-    dropdown.on_change("value", on_change)
+    dropdown.on_click(on_change)
 
     layers_ui = layers.LayersUI()
 
@@ -235,7 +240,6 @@ def main(argv=None):
         break
 
     middlewares = [
-        mws.echo,
         keys.navigate,
         db.InverseCoordinate("pressure"),
         db.next_previous,
@@ -246,20 +250,16 @@ def main(argv=None):
         presets.middleware,
         layers.middleware,
         navigator,
+        mws.echo,
     ]
     store = redux.Store(
-        redux.combine_reducers(
-            db.reducer,
-            layers.reducer,
-            screen.reducer,
-            tools.reducer,
-            colors.reducer,
-            colors.limits_reducer,
-            presets.reducer,
-            tiles.reducer,
-            dimension.reducer),
+        forest.reducer,
         initial_state=initial_state,
         middlewares=middlewares)
+
+    # Colorbar user interface
+    colorbar_ui = forest.components.ColorbarUI()
+    colorbar_ui.connect(store)
 
     # Add time user interface
     time_ui = forest.components.TimeUI()
@@ -286,7 +286,7 @@ def main(argv=None):
             "profile": "Display Profile"
         }
     available_features = {k: display_names[k]
-                          for k in display_names.keys() if config.features[k]}
+                          for k in display_names.keys() if data.FEATURE_FLAGS[k]}
 
     tools_panel = tools.ToolsPanel(available_features)
     tools_panel.connect(store)
@@ -314,7 +314,8 @@ def main(argv=None):
         tile_picker.connect(store)
 
     # Connect color palette controls
-    color_palette = colors.ColorPalette(color_mapper).connect(store)
+    colors.ColorMapperView(color_mapper).connect(store)
+    color_palette = colors.ColorPalette().connect(store)
 
     # Connect limit controllers to store
     user_limits = colors.UserLimits().connect(store)
@@ -327,7 +328,11 @@ def main(argv=None):
     controls.connect(store)
 
     # Add support for a modal dialogue
-    modal = forest.components.Modal()
+    if data.FEATURE_FLAGS["multiple_colorbars"]:
+        view = forest.components.modal.Tabbed()
+    else:
+        view = forest.components.modal.Default()
+    modal = forest.components.Modal(view=view)
     modal.connect(store)
 
     # Set default time series visibility
@@ -394,7 +399,7 @@ def main(argv=None):
         ])
 
     tool_figures = {}
-    if config.features["time_series"]:
+    if data.FEATURE_FLAGS["time_series"]:
         # Series sub-figure widget
         series_figure = bokeh.plotting.figure(
                     plot_width=400,
@@ -418,7 +423,7 @@ def main(argv=None):
 
         tool_figures["series_figure"] = series_figure
 
-    if config.features["profile"]:
+    if data.FEATURE_FLAGS["profile"]:
         # Profile sub-figure widget
         profile_figure = bokeh.plotting.figure(
                     plot_width=300,
@@ -471,8 +476,7 @@ def main(argv=None):
         bokeh.layouts.row(time_ui.layout, name="time"))
     for root in navbar.roots:
         document.add_root(root)
-    document.add_root(
-        bokeh.layouts.row(colorbar_ui.layout, name="colorbar"))
+    document.add_root(colorbar_ui.layout)
     document.add_root(figure_row.layout)
     document.add_root(key_press.hidden_button)
     document.add_root(modal.layout)
@@ -531,5 +535,5 @@ def add_feature(figure, data, color="black"):
         color=color)
 
 
-if __name__.startswith("bk"):
+if __name__.startswith("bokeh"):
     main()

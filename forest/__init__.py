@@ -23,11 +23,13 @@ forecasts alongside observations.
 .. automodule:: forest.presets
 
 """
-__version__ = '0.15.0'
+__version__ = '0.17.1'
 
 from .config import *
 from . import (
+        actions,
         redux,
         tutorial)
 from .db import Database
 from .keys import *
+from .reducer import reducer

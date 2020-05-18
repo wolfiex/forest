@@ -17,6 +17,7 @@ from typing import Iterable, List
 from forest import rx
 from forest.redux import Action, State, Store
 from forest.observe import Observable
+from forest import colors
 import forest.drivers
 import forest.view
 
@@ -487,6 +488,12 @@ class LayerSpec:
     dataset: str = ""
     variable: str = ""
     active: List[int] = field(default_factory=list)
+    color_spec: colors.ColorSpec = colors.ColorSpec()
+    colorbar: dict = field(default_factory=dict)
+
+    def __post_init__(self):
+        if isinstance(self.color_spec, dict):
+            self.color_spec = colors.ColorSpec(**self.color_spec)
 
 
 class Gallery:
@@ -542,7 +549,8 @@ class Gallery:
             layer_state = {}
             layer_state.update(state)
             if spec.variable != "":
-                layer_state.update(variable=spec.variable)
+                layer_state.update(variable=spec.variable,
+                                   colorbar=spec.colorbar)
             layer.render(layer_state)
 
             used_layers[key].append(layer)
