@@ -161,13 +161,14 @@ def main(argv=None):
             for(var g = 0; g < render3.data_source.data['fontsize'].length; g++)
             {
                  render3.data_source.data['colour'][g] = "olive";
-                 if(starting_font_size == render3.data_source.data['datasize'][g])
+                 if(starting_font_size  == render3.data_source.data['datasize'][g])
                  {
                     //calculate initial datasize
-                    starting_font_proportion = starting_font_size/(figure.inner_height);
+                    var starting_font_proportion = starting_font_size/(figure.inner_height);
                     render3.data_source.data['datasize'][g] = (starting_font_proportion * (figure.y_range.end - figure.y_range.start));
                  }
-                 render3.data_source.data['fontsize'][g] = ((render3.data_source.data['datasize'][g])/ (figure.y_range.end - figure.y_range.start))*figure.inner_height ;
+                 render3.data_source.data['fontsize'][g] = (((render3.data_source.data['datasize'][g])/ (figure.y_range.end - figure.y_range.start))*figure.inner_height) + 'px';
+                 console.log(render3.data_source.data['fontsize'][g]);
             }
             glyph.change.emit();
             """)

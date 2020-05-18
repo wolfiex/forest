@@ -93,7 +93,7 @@ class KeyPress(Observable):
                 document.onkeydown = throttle(onkeydown, interval)
 
                 // Global to prevent multiple onkeydown callbacks
-                keyPressOn = true
+                var keyPressOn = true
             }
         """)
         self.hidden_button = bokeh.models.Button(
