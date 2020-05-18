@@ -153,22 +153,21 @@ def main(argv=None):
                 text_color="colour",
                 text_font_size="fontsize")
         #glyph.text_font_size = '%spx' % starting_font_size
-        glyph.tags = ['datasize', starting_font_size]
 
         render3 = figure.add_glyph(source2, glyph)
         figure.y_range.js_on_change('start',
         bokeh.models.CustomJS(args=dict(render3=render3, glyph=glyph, figure=figure, starting_font_size=starting_font_size),code="""
 
-            for(g = 0; g < render3.data_source.data['fontsize'].length; g++)
+            for(var g = 0; g < render3.data_source.data['fontsize'].length; g++)
             {
                  render3.data_source.data['colour'][g] = "olive";
-                 if(starting_font_size + 'px' == render3.data_source.data['datasize'][g])
+                 if(starting_font_size == render3.data_source.data['datasize'][g])
                  {
                     //calculate initial datasize
                     starting_font_proportion = starting_font_size/(figure.inner_height);
                     render3.data_source.data['datasize'][g] = (starting_font_proportion * (figure.y_range.end - figure.y_range.start));
                  }
-                 render3.data_source.data['fontsize'][g] = (parseFloat(render3.data_source.data['datasize'][g])/ (figure.y_range.end - figure.y_range.start))*figure.inner_height + 'px';
+                 render3.data_source.data['fontsize'][g] = ((render3.data_source.data['datasize'][g])/ (figure.y_range.end - figure.y_range.start))*figure.inner_height ;
             }
             glyph.change.emit();
             """)
@@ -176,7 +175,7 @@ def main(argv=None):
         #render3 = bokeh.models.renderers.GlyphRenderer(data_source=ColumnDataSource(dict(x=x, y=y, text="X")), glyph=bokeh.models.Text(x="xs", y="ys", text="text", angle=0.3, text_color="fuchsia"))
         tool3 = bokeh.models.tools.PointDrawTool(
                     renderers=[render3],
-                    empty_value='%spx' % starting_font_size,
+                    empty_value=starting_font_size,
                     )
 
         barc_tools = [tool2,tool3]
