@@ -23,6 +23,7 @@ from forest import (
         rx,
         navigate,
         wind,
+        barc,
         parse_args)
 import forest.components
 from forest.components import tiles
@@ -141,55 +142,66 @@ def main(argv=None):
                     vertex_renderer=render21,
                     )
 
-        source2 = bokeh.models.ColumnDataSource(data.EMPTY)
-        source2.add([],"datasize")
-        source2.add([],"fontsize")
-        source2.add([],"colour")
-        #render3 = figure.circle(x="xs",y="ys",legend_label="X", source=source);
+        source_text_stamp = bokeh.models.ColumnDataSource(data.EMPTY)
+        source_text_stamp.add([],"datasize")
+        source_text_stamp.add([],"fontsize")
+        source_text_stamp.add([],"colour")
+        #render_text_stamp = figure.circle(x="xs",y="ys",legend_label="X", source=source);
         starting_font_size = 30 #in pixels 
-        glyph = bokeh.models.Text(
+        '''glyph = bokeh.models.Text(
                 x="xs", 
                 y="ys", 
                 text=value("🌧"),  
                 text_color="colour",
-                text_font_size="fontsize")
+                text_font_size="fontsize")'''
         #glyph.text_font_size = '%spx' % starting_font_size
 
         source_barb = bokeh.models.ColumnDataSource(data.EMPTY)
         render_barb = figure.barb(
                 x="xs", 
                 y="ys", 
-                u=50,
-                v=50,
+                u=0,
+                v=70,
                 source=source_barb
                 )
 
-        render3 = figure.add_glyph(source2, glyph)
-        figure.y_range.js_on_change('start',
-        bokeh.models.CustomJS(args=dict(render3=render3, glyph=glyph, figure=figure, starting_font_size=starting_font_size),code="""
+        #render_text_stamp = figure.add_glyph(source_text_stamp, glyph)
+        render_text_stamp = figure.text_stamp(
+                x="xs", 
+                y="ys", 
+                source=source_text_stamp,
+                text=value("🌧"),  
+                text_color="colour",
+                text_font_size="fontsize"
+                )
+                
 
-            for(var g = 0; g < render3.data_source.data['fontsize'].length; g++)
+        figure.y_range.js_on_change('start',
+        bokeh.models.CustomJS(args=dict(render_text_stamp=render_text_stamp, glyph=render_text_stamp.glyph, figure=figure, starting_font_size=starting_font_size),code="""
+
+            for(var g = 0; g < render_text_stamp.data_source.data['fontsize'].length; g++)
             {
-                 render3.data_source.data['colour'][g] = "olive";
-                 if(starting_font_size  == render3.data_source.data['datasize'][g])
+                 render_text_stamp.data_source.data['colour'][g] = "olive";
+                 if(starting_font_size  == render_text_stamp.data_source.data['datasize'][g])
                  {
                     //calculate initial datasize
                     var starting_font_proportion = starting_font_size/(figure.inner_height);
-                    render3.data_source.data['datasize'][g] = (starting_font_proportion * (figure.y_range.end - figure.y_range.start));
+                    render_text_stamp.data_source.data['datasize'][g] = (starting_font_proportion * (figure.y_range.end - figure.y_range.start));
                  }
-                 render3.data_source.data['fontsize'][g] = (((render3.data_source.data['datasize'][g])/ (figure.y_range.end - figure.y_range.start))*figure.inner_height) + 'px';
-                 console.log(render3.data_source.data['fontsize'][g]);
+                 render_text_stamp.data_source.data['fontsize'][g] = (((render_text_stamp.data_source.data['datasize'][g])/ (figure.y_range.end - figure.y_range.start))*figure.inner_height) + 'px';
+                 console.log(render_text_stamp.data_source.data['fontsize'][g]);
             }
             glyph.change.emit();
             """)
         )
-        #render3 = bokeh.models.renderers.GlyphRenderer(data_source=ColumnDataSource(dict(x=x, y=y, text="X")), glyph=bokeh.models.Text(x="xs", y="ys", text="text", angle=0.3, text_color="fuchsia"))
+        #render_text_stamp = bokeh.models.renderers.GlyphRenderer(data_source=ColumnDataSource(dict(x=x, y=y, text="X")), glyph=bokeh.models.Text(x="xs", y="ys", text="text", angle=0.3, text_color="fuchsia"))
         tool3 = bokeh.models.tools.PointDrawTool(
-                    renderers=[render3],
+                    renderers=[render_text_stamp],
                     empty_value=starting_font_size,
                     )
         tool4 = bokeh.models.tools.PointDrawTool(
                     renderers=[render_barb],
+                    custom_icon = 'forest/wind/barb.png'
                     )
 
         barc_tools = [tool2,tool3, tool4]
