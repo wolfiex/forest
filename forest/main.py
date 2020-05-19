@@ -22,6 +22,7 @@ from forest import (
         redux,
         rx,
         navigate,
+        wind,
         parse_args)
 import forest.components
 from forest.components import tiles
@@ -154,6 +155,15 @@ def main(argv=None):
                 text_font_size="fontsize")
         #glyph.text_font_size = '%spx' % starting_font_size
 
+        source_barb = bokeh.models.ColumnDataSource(data.EMPTY)
+        render_barb = figure.barb(
+                x="xs", 
+                y="ys", 
+                u=50,
+                v=50,
+                source=source_barb
+                )
+
         render3 = figure.add_glyph(source2, glyph)
         figure.y_range.js_on_change('start',
         bokeh.models.CustomJS(args=dict(render3=render3, glyph=glyph, figure=figure, starting_font_size=starting_font_size),code="""
@@ -178,8 +188,11 @@ def main(argv=None):
                     renderers=[render3],
                     empty_value=starting_font_size,
                     )
+        tool4 = bokeh.models.tools.PointDrawTool(
+                    renderers=[render_barb],
+                    )
 
-        barc_tools = [tool2,tool3]
+        barc_tools = [tool2,tool3, tool4]
         #figure.tools = barc_tools
         figure.add_tools(*barc_tools)
         #barc_toolbar=bokeh.models.tools.Toolbar(tools=barc_tools,logo=None)
