@@ -148,6 +148,7 @@ def main(argv=None):
         source_text_stamp.add([],"colour")
         #render_text_stamp = figure.circle(x="xs",y="ys",legend_label="X", source=source);
         starting_font_size = 30 #in pixels 
+        starting_colour = "orange" #in CSS-type spec 
         '''glyph = bokeh.models.Text(
                 x="xs", 
                 y="ys", 
@@ -160,8 +161,8 @@ def main(argv=None):
         render_barb = figure.barb(
                 x="xs", 
                 y="ys", 
-                u=0,
-                v=70,
+                u=-50,
+                v=-50,
                 source=source_barb
                 )
 
@@ -175,21 +176,35 @@ def main(argv=None):
                 text_font_size="fontsize"
                 )
                 
+        source_text_stamp.js_on_change('data', 
+            bokeh.models.CustomJS(args=dict(datasource = render_text_stamp.data_source, starting_font_size=starting_font_size, figure=figure, starting_colour=starting_colour), code="""
+                for(var g = 0; g < datasource.data['fontsize'].length; g++)
+                {
+                    if(!datasource.data['colour'][g])
+                    {
+                        datasource.data['colour'][g] = starting_colour;
+                    }
 
+                    if(!datasource.data['fontsize'][g])
+                    {
+                        datasource.data['fontsize'][g] = starting_font_size +'px';
+                    }
+
+                    //calculate initial datasize
+                    if(!datasource.data['datasize'][g])
+                    {
+                        var starting_font_proportion = starting_font_size/(figure.inner_height);
+                        datasource.data['datasize'][g] = (starting_font_proportion * (figure.y_range.end - figure.y_range.start));
+                    }
+                }
+                """)
+        )
         figure.y_range.js_on_change('start',
-        bokeh.models.CustomJS(args=dict(render_text_stamp=render_text_stamp, glyph=render_text_stamp.glyph, figure=figure, starting_font_size=starting_font_size),code="""
+            bokeh.models.CustomJS(args=dict(render_text_stamp=render_text_stamp, glyph=render_text_stamp.glyph, figure=figure, starting_font_size=starting_font_size),code="""
 
             for(var g = 0; g < render_text_stamp.data_source.data['fontsize'].length; g++)
             {
-                 render_text_stamp.data_source.data['colour'][g] = "olive";
-                 if(starting_font_size  == render_text_stamp.data_source.data['datasize'][g])
-                 {
-                    //calculate initial datasize
-                    var starting_font_proportion = starting_font_size/(figure.inner_height);
-                    render_text_stamp.data_source.data['datasize'][g] = (starting_font_proportion * (figure.y_range.end - figure.y_range.start));
-                 }
                  render_text_stamp.data_source.data['fontsize'][g] = (((render_text_stamp.data_source.data['datasize'][g])/ (figure.y_range.end - figure.y_range.start))*figure.inner_height) + 'px';
-                 console.log(render_text_stamp.data_source.data['fontsize'][g]);
             }
             glyph.change.emit();
             """)
@@ -197,7 +212,6 @@ def main(argv=None):
         #render_text_stamp = bokeh.models.renderers.GlyphRenderer(data_source=ColumnDataSource(dict(x=x, y=y, text="X")), glyph=bokeh.models.Text(x="xs", y="ys", text="text", angle=0.3, text_color="fuchsia"))
         tool3 = bokeh.models.tools.PointDrawTool(
                     renderers=[render_text_stamp],
-                    empty_value=starting_font_size,
                     )
         tool4 = bokeh.models.tools.PointDrawTool(
                     renderers=[render_barb],

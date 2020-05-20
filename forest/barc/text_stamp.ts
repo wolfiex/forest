@@ -3,7 +3,7 @@ import {Text, TextView, TextData} from "models/glyphs/text"
 import {TextVector} from "core/property_mixins"
 //import {PointGeometry} from "core/geometry"
 //import * as hittest from "core/hittest"
-import {Arrayable} from "core/types"
+//import {Arrayable} from "core/types"
 import * as visuals from "core/visuals"
 import * as p from "core/properties"
 //import {measure_font} from "core/util/text"
@@ -12,13 +12,6 @@ import * as p from "core/properties"
 //import {Selection} from "../selections/selection"
 
 export interface TextStampData extends TextData {
-  _text: Arrayable<string>
-  _angle: Arrayable<number>
-  _x_offset: Arrayable<number>
-  _y_offset: Arrayable<number>
-
-  _sxs: number[][][]
-  _sys: number[][][]
 }
 
 export interface TextStampView extends TextStampData {}
@@ -32,12 +25,7 @@ export class TextStampView extends TextView {
 export namespace TextStamp {
   export type Attrs = p.AttrsOf<Props>
 
-  export type Props = XYGlyph.Props & {
-    text: p.NullStringSpec
-    angle: p.AngleSpec
-    x_offset: p.NumberSpec
-    y_offset: p.NumberSpec
-  } & Mixins
+  export type Props = Text.Props
 
   export type Mixins = TextVector
 
