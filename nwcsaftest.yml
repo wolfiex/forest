@@ -1,7 +1,8 @@
 files:
     - label: NWCSAF
-      pattern: ${HOME}/work/NWCPY3/test-data/CTTH/S_NWC_CTTH_MSG4_[GS]*
+      pattern: ${HOME}/work/forest-test-data/NWCPY3/test-data/CTTH/S_NWC_CTTH_MSG4_[GS]*
       file_type: saf
 features:
     time_series: true  
     profile: true
+    BARC: true
