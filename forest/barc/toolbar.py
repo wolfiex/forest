@@ -79,8 +79,8 @@ class BARC:
                     //calculate initial datasize
                     if(!datasource.data['datasize'][g])
                     {
-                        var starting_font_proportion = starting_font_size/(self.figure.inner_height);
-                        datasource.data['datasize'][g] = (starting_font_proportion * (self.figure.y_range.end - self.figure.y_range.start));
+                        var starting_font_proportion = starting_font_size/(figure.inner_height);
+                        datasource.data['datasize'][g] = (starting_font_proportion * (figure.y_range.end - figure.y_range.start));
                     }
                 }
                 """)
@@ -90,7 +90,7 @@ class BARC:
 
             for(var g = 0; g < render_text_stamp.data_source.data['fontsize'].length; g++)
             {
-                 render_text_stamp.data_source.data['fontsize'][g] = (((render_text_stamp.data_source.data['datasize'][g])/ (self.figure.y_range.end - self.figure.y_range.start))*self.figure.inner_height) + 'px';
+                 render_text_stamp.data_source.data['fontsize'][g] = (((render_text_stamp.data_source.data['datasize'][g])/ (figure.y_range.end - figure.y_range.start))*figure.inner_height) + 'px';
             }
             glyph.change.emit();
             """)
