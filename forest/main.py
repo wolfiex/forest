@@ -231,8 +231,8 @@ def main(argv=None):
 
     #barc_toolbar=bokeh.models.tools.Toolbar(tools=barc_tools,logo=None)
     if data.FEATURE_FLAGS["BARC"]:
-        barc = BARC(figures[0])
-        tools_panel.layout.children.append(barc.ToolBar())
+         barc = BARC(figures)
+         tools_panel.layout.children.extend(barc.ToolBar())
 
     # Navbar components
     navbar = Navbar(show_diagram_button=len(available_features) > 0)

@@ -6,43 +6,44 @@ from bokeh.models.tools import PolyDrawTool, PointDrawTool, ToolbarBox,FreehandD
 from forest import wind, data
 
 class BARC:
-    def __init__(self, figure):
-        self.figure = figure
-        barc_tools = [
-                self.polyLine(),
-                self.textStamp(),
-                self.windBarb()
+    def __init__(self, figures):
+        self.figures = figures
+        for figure in self.figures:
+            barc_tools = [
+                self.polyLine(figure),
+                self.textStamp(figure),
+                self.windBarb(figure)
                 ]
-        #self.figure.tools = barc_tools
-        self.figure.add_tools(*barc_tools)
+            #self.figure.tools = barc_tools
+            figure.add_tools(*barc_tools)
     
 
 
-    def polyLine(self):
-        source_polyline = ColumnDataSource(data.EMPTY)
-        render_line =  self.figure.multi_line(
+    def polyLine(self, figure):
+        self.source_polyline = ColumnDataSource(data.EMPTY)
+        render_line =  figure.multi_line(
             xs="xs",
             ys="ys",
-            source=source_polyline,
+            source=self.source_polyline,
             alpha=0.3,
             color="red", level="overlay")
         text = Text(x="xs", y="ys", text=value("abc"), text_color="red", text_font_size="12pt")
-        render_line1 = self.figure.add_glyph(source_polyline,text)
+        render_line1 = figure.add_glyph(self.source_polyline,text)
         tool2 = FreehandDrawTool(
                     renderers=[render_line], 
                     )
-        source_polyline.js_on_change('data', 
-            bokeh.models.CustomJS(args=dict(datasource = render_line.data_source, starting_font_size="30px", figure=self.figure, starting_colour="red", text=Text()), code="""
+        self.source_polyline.js_on_change('data', 
+            bokeh.models.CustomJS(args=dict(datasource = render_line.data_source, starting_font_size="30px", figure=figure, starting_colour="red", text=Text()), code="""
             console.log(datasource.data);
                 """)
         )
         return tool2
 
-    def textStamp(self):
-        source_text_stamp = ColumnDataSource(data.EMPTY)
-        source_text_stamp.add([],"datasize")
-        source_text_stamp.add([],"fontsize")
-        source_text_stamp.add([],"colour")
+    def textStamp(self, figure):
+        self.source_text_stamp = ColumnDataSource(data.EMPTY)
+        self.source_text_stamp.add([],"datasize")
+        self.source_text_stamp.add([],"fontsize")
+        self.source_text_stamp.add([],"colour")
         #render_text_stamp = self.figure.circle(x="xs",y="ys",legend_label="X", source=source);
         starting_font_size = 30 #in pixels 
         starting_colour = "orange" #in CSS-type spec 
@@ -54,18 +55,18 @@ class BARC:
                 text_font_size="fontsize")'''
         #glyph.text_font_size = '%spx' % starting_font_size
 
-        #render_text_stamp = self.figure.add_glyph(source_text_stamp, glyph)
-        render_text_stamp = self.figure.text_stamp(
+        #render_text_stamp = self.figure.add_glyph(self.source_text_stamp, glyph)
+        render_text_stamp = figure.text_stamp(
                 x="xs", 
                 y="ys", 
-                source=source_text_stamp,
+                source=self.source_text_stamp,
                 text=value("🌧"),  
                 text_color="colour",
                 text_font_size="fontsize"
                 )
                 
-        source_text_stamp.js_on_change('data', 
-            bokeh.models.CustomJS(args=dict(datasource = render_text_stamp.data_source, starting_font_size=starting_font_size, figure=self.figure, starting_colour=starting_colour), code="""
+        self.source_text_stamp.js_on_change('data', 
+            bokeh.models.CustomJS(args=dict(datasource = render_text_stamp.data_source, starting_font_size=starting_font_size, figure=figure, starting_colour=starting_colour), code="""
                 for(var g = 0; g < datasource.data['fontsize'].length; g++)
                 {
                     if(!datasource.data['colour'][g])
@@ -87,8 +88,8 @@ class BARC:
                 }
                 """)
         )
-        self.figure.y_range.js_on_change('start',
-            bokeh.models.CustomJS(args=dict(render_text_stamp=render_text_stamp, glyph=render_text_stamp.glyph, figure=self.figure, starting_font_size=starting_font_size),code="""
+        figure.y_range.js_on_change('start',
+            bokeh.models.CustomJS(args=dict(render_text_stamp=render_text_stamp, glyph=render_text_stamp.glyph, figure=figure, starting_font_size=starting_font_size),code="""
 
             for(var g = 0; g < render_text_stamp.data_source.data['fontsize'].length; g++)
             {
@@ -103,14 +104,14 @@ class BARC:
                     )
         return tool3
 
-    def windBarb(self):
-        source_barb = ColumnDataSource(data.EMPTY)
-        render_barb = self.figure.barb(
+    def windBarb(self, figure):
+        self.source_barb = ColumnDataSource(data.EMPTY)
+        render_barb = figure.barb(
                 x="xs", 
                 y="ys", 
                 u=-50,
                 v=-50,
-                source=source_barb
+                source=self.source_barb
                 )
 
         tool4 = PointDrawTool(
@@ -120,8 +121,12 @@ class BARC:
         return tool4
 
     def ToolBar(self):
-        toolBarBox = ToolbarBox(
-            toolbar = self.figure.toolbar,
-            toolbar_location = "above"
-        )
-        return toolBarBox
+        toolBarBoxes = []
+        for figure in self.figures:
+            toolBarBoxes.append(
+                 ToolbarBox(
+                     toolbar = figure.toolbar,
+                     toolbar_location = "above"
+                 )
+            )
+        return toolBarBoxes
