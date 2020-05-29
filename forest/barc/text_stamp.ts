@@ -35,7 +35,7 @@ export namespace TextStamp {
 export interface TextStamp extends TextStamp.Attrs {}
 
 export class TextStamp extends Text {
-  properties: TextStamp.Props
+  properties: Text.Props
   __view_type__: TextStampView
 
   constructor(attrs?: Partial<TextStamp.Attrs>) {
