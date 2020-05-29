@@ -1,33 +1,44 @@
 import bokeh.models
 from bokeh.models import ColumnDataSource
+from bokeh.models.glyphs import Text
 from bokeh.core.properties import value
-from bokeh.models.tools import PolyDrawTool, PointDrawTool, ToolbarBox
+from bokeh.models.tools import PolyDrawTool, PointDrawTool, ToolbarBox,FreehandDrawTool
 from forest import wind, data
 
 class BARC:
     def __init__(self, figure):
         self.figure = figure
-        self.polyLine()
+        barc_tools = [
+                self.polyLine(),
+                self.textStamp(),
+                self.windBarb()
+                ]
+        #self.figure.tools = barc_tools
+        self.figure.add_tools(*barc_tools)
+    
 
 
     def polyLine(self):
-        source1 = ColumnDataSource(data.EMPTY)
+        source_polyline = ColumnDataSource(data.EMPTY)
         render_line =  self.figure.multi_line(
             xs="xs",
             ys="ys",
-            source=source1,
+            source=source_polyline,
             alpha=0.3,
             color="red", level="overlay")
-        render_line1 = self.figure.circle(
-                [],
-                [],
-            alpha=0.3,
-            color="red", level="overlay")
-        tool2 = PolyDrawTool(
+        text = Text(x="xs", y="ys", text=value("abc"), text_color="red", text_font_size="12pt")
+        render_line1 = self.figure.add_glyph(source_polyline,text)
+        tool2 = FreehandDrawTool(
                     renderers=[render_line], 
-                    vertex_renderer=render_line1,
                     )
+        source_polyline.js_on_change('data', 
+            bokeh.models.CustomJS(args=dict(datasource = render_line.data_source, starting_font_size="30px", figure=self.figure, starting_colour="red", text=Text()), code="""
+            console.log(datasource.data);
+                """)
+        )
+        return tool2
 
+    def textStamp(self):
         source_text_stamp = ColumnDataSource(data.EMPTY)
         source_text_stamp.add([],"datasize")
         source_text_stamp.add([],"fontsize")
@@ -42,15 +53,6 @@ class BARC:
                 text_color="colour",
                 text_font_size="fontsize")'''
         #glyph.text_font_size = '%spx' % starting_font_size
-
-        source_barb = ColumnDataSource(data.EMPTY)
-        render_barb = self.figure.barb(
-                x="xs", 
-                y="ys", 
-                u=-50,
-                v=-50,
-                source=source_barb
-                )
 
         #render_text_stamp = self.figure.add_glyph(source_text_stamp, glyph)
         render_text_stamp = self.figure.text_stamp(
@@ -99,15 +101,24 @@ class BARC:
         tool3 = PointDrawTool(
                     renderers=[render_text_stamp],
                     )
+        return tool3
+
+    def windBarb(self):
+        source_barb = ColumnDataSource(data.EMPTY)
+        render_barb = self.figure.barb(
+                x="xs", 
+                y="ys", 
+                u=-50,
+                v=-50,
+                source=source_barb
+                )
+
         tool4 = PointDrawTool(
                     renderers=[render_barb],
                     custom_icon = 'forest/wind/barb.png'
                     )
+        return tool4
 
-        barc_tools = [tool2,tool3, tool4]
-        #self.figure.tools = barc_tools
-        self.figure.add_tools(*barc_tools)
-    
     def ToolBar(self):
         toolBarBox = ToolbarBox(
             toolbar = self.figure.toolbar,
