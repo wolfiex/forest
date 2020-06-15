@@ -106,6 +106,10 @@ def main(argv=None):
         datasets[group.label] = dataset
         datasets_by_pattern[group.pattern] = dataset
         label_to_pattern[group.label] = group.pattern
+        
+        
+        
+    # print('\n\n\n\n', datasets, '\n\n\n\n')
 
     # Lakes
     for figure in figures:
@@ -448,6 +452,7 @@ class Navbar:
             name=key)
         custom_js = bokeh.models.CustomJS(code="""
             openId("diagrams");
+            document.getElementById('diagrams').style.width='310px';
         """)
         self.buttons[key].js_on_click(custom_js)
 

@@ -2,13 +2,16 @@
 ## Dan Ellis 
 
 ### Issues
-As I can’t add issues to your branch, it is worth noting that the barc configuration requires for forest and the config file to be run within the forest repository (e.g. for finding the wind barb png file). It may be worth linking these with the library path e.g. `__file__` rather than directly. (edited) 
 
-
+### TODO
+- bart reads all possible plots. Often only one is displayed. 
+It is worth reading the number displayed from FigureUI(Observable) in `layers.py` and only showing that many toolbars.
 
 
 
 ### Notes 
+- Run command: `forest --dev --config-file nwcsaftest.yml --show; pkill -9 python
+`
 - Bokeh can only update free draw arrays in server mode (app) and not within normal usage - this makes testing difficult
 
 - Any files required by app need to be in the `forest/static` folder
@@ -40,10 +43,32 @@ callback = bokeh.models.CustomJS(code="""
  
  
  
- ### Changes to Forest Code
+### Changes to Forest Code
  
- #### 1. Barc Logo
+#### 0. Pull request into Forest #319
+https://github.com/MetOffice/forest/pull/319
+
+A local server self-termination switch for exiting python on closure of browser window and freeing up the port. 
+Correspondance and changes shown in the pull request thread and commits. 
+ 
+#### 1. Barc Logo
  - image added to `static`
  - `main.py` edited to remove label and add `barc_btn` class. 
  - `static/style.css` edited to add relevant styling for button and parent classes. 
  
+#### 2 SideBar styling and width 
+ - `main.py` callback for width styling
+ - `static/style.css` for colour 
+ 
+#### 3. Remove location sensetive references. 
+The barc configuration required for forest and the config file to be run within the forest repository (e.g. for finding the wind barb png file). This has been fixed by reading the absolute location of the library and using that to reference the images. 
+
+- barc/toolbar.py line 119:
+
+ `wind.__file__.replace('__init__.py','barb.png')`
+ 
+#### 4. Toolabar labels  - see TODO
+Added descriptors for each barc toolbar and styling. 'Paragraph' `<p>`  elements at the end of barc/toolbar.py.
+
+#### 5. 
+

@@ -1,13 +1,18 @@
 import bokeh.models
-from bokeh.models import ColumnDataSource
+from bokeh.models import ColumnDataSource, Paragraph
 from bokeh.models.glyphs import Text
 from bokeh.core.properties import value
 from bokeh.models.tools import PolyDrawTool, PointDrawTool, ToolbarBox,FreehandDrawTool
 from forest import wind, data
+from . import front
 
 class BARC:
+    ''' A class for the BARC features - more documentation needed. ''' 
+    
     def __init__(self, figures):
         self.figures = figures
+        ''' For each figure supplied (if multiple) ''' 
+        print( '\n\n\n',figures)
         for figure in self.figures:
             barc_tools = [
                 self.polyLine(figure),
@@ -16,16 +21,20 @@ class BARC:
                 ]
             #self.figure.tools = barc_tools
             figure.add_tools(*barc_tools)
+            
+
+            
     
 
 
     def polyLine(self, figure):
+        ''' Freehand Tool '''
         self.source_polyline = ColumnDataSource(data.EMPTY)
         render_line =  figure.multi_line(
             xs="xs",
             ys="ys",
             source=self.source_polyline,
-            alpha=0.3,
+            alpha=0.5,
             color="red", level="overlay")
         text = Text(x="xs", y="ys", text=value("abc"), text_color="red", text_font_size="12pt")
         render_line1 = figure.add_glyph(self.source_polyline,text)
@@ -37,7 +46,15 @@ class BARC:
             console.log(datasource.data);
                 """)
         )
+        # 
+        # def line_change (attr,old,new):
+        #     print('\n\n\n', self.source_polyline.data,attr,old,new)
+        # 
+        # self.source_polyline.on_change('data',line_change)
+        
         return tool2
+
+
 
     def textStamp(self, figure):
         self.source_text_stamp = ColumnDataSource(data.EMPTY)
@@ -116,17 +133,42 @@ class BARC:
 
         tool4 = PointDrawTool(
                     renderers=[render_barb],
-                    custom_icon = 'forest/wind/barb.png'
+                    custom_icon = wind.__file__.replace('__init__.py','barb.png')
                     )
+                    
         return tool4
+
+
+
+#####################################
+
 
     def ToolBar(self):
         toolBarBoxes = []
-        for figure in self.figures:
+        for i, figure in enumerate(self.figures):
+            
+            ### label toolbars
+            toolBarBoxes.append(
+                Paragraph(
+                text="""Toolbar: Figure %d"""%(i+1),
+                width=200, height=18,
+                css_classes=['barc_p']
+                )
+            )
+
+            self.warm = front.front(self,figure,'warm')
+            figure.add_tools(*[front.front(self,figure,'warm')])
+
             toolBarBoxes.append(
                  ToolbarBox(
                      toolbar = figure.toolbar,
-                     toolbar_location = "above"
+                     toolbar_location = "below"
                  )
             )
+            
+            
+            
+            
+            
+            
         return toolBarBoxes

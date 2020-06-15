@@ -138,6 +138,7 @@ footer {
 }
 
 
+/* barc button */
 div.barc_btn{
     width:50pt!important
 }
@@ -149,3 +150,11 @@ div.barc_btn div button{
     
 }
 
+/* barc sidebar */
+div.diagrams{
+    background-color: #333!important;
+}
+
+div.barc_p div p{
+    color:whitesmoke!important;
+}
