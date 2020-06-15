@@ -443,8 +443,8 @@ class Navbar:
         # Add button to control right drawer
         key = "diagrams_button"
         self.buttons[key] = bokeh.models.Button(
-            label = '',# label="Diagrams",# now contains the barc logo
-            css_classes=["float-right",'barc_btn'],
+            label="Diagrams",
+            css_classes=["float-right"],
             name=key)
         custom_js = bokeh.models.CustomJS(code="""
             openId("diagrams");

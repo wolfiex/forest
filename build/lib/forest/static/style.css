@@ -136,16 +136,3 @@ footer {
     border-radius: 0.2rem;
     box-shadow: 0 3px 5px rgba(0, 0, 0, 0.5);
 }
-
-
-div.barc_btn{
-    width:50pt!important
-}
-div.barc_btn div button{
-    /* reads from static folder as first level dir */
-    background-image: url("barclogo.png")!important;
-    background-size : 50pt!important;
-    height:30pt!important;
-    
-}
-
