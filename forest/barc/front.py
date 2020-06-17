@@ -8,6 +8,8 @@ from forest import data
 
 def mecator_2_percent(posn):
     ''' 
+    NO LONGER NEEDED - normalise by range not location
+    
     Convert between EPSG:3857 WGS 84 / Pseudo-Mercator to a percentage of the lon lat map -180 to 180 and -90 to 90 map
     
     x = lon
@@ -23,36 +25,39 @@ def mecator_2_percent(posn):
     
     return [[x[i],y[i]] for i in range(len(x))]
     
-def test(self,figure):
-            return   Paragraph(
-                    text="""eeeeee""",
-                    width=200, height=18,
-                    css_classes=['barc_p']
-                    )
-
-
-
-
-def callback(cdata,figure):
-    
-    
-    #pts = mecator_2_percent(data)
-    
-    
     
 
-    js = CustomJS(args=dict(datasource = cdata, figure=figure),
-    code="""
+def range_change(figure,i):
+    ''' Callback function on map range change '''
 
-        console.log(document.querySelectorAll('canvas'))
-        console.log(datasource.data);
-
-
-    """)
-
+    js = CustomJS(args=dict(xr=figure.x_range,yr=figure.y_range,fig_n=i), code="""
+        document.bbox[fig_n] = {x0:xr.start, x1:xr.end, y0:yr.start, y1:yr.end};
+        console.log('∆range')
+        """)
 
     return js
     
+
+
+
+def front_callback(cdata,figure,which):
+    ''' Update the JS variables containing all drawn front paths. '''
+    #pts= mecator_2_percent(data)
+    
+
+    js = CustomJS(args=dict(paths = cdata,fronttype = which,  figure=figure),
+    code="""
+        if (document.canvases.length<1 ){get_figures()};
+        document.fronts[fronttype] = paths.data
+        console.log(document.fronts)
+        
+    """)
+
+    return js
+    
+
+
+
     
 def front(self, figure, which:str):
         '''
@@ -89,13 +94,15 @@ def front(self, figure, which:str):
             
         drawfront = FreehandDrawTool(renderers=[line],custom_icon=__file__.replace('front.py','icons/barclogo.png'))
                     
-        getattr(self , 'source_'+which ).js_on_change('data', callback(line.data_source,figure) )
+        getattr(self , 'source_'+which ).js_on_change('data', front_callback(line.data_source,figure,which) )
+        
         
         # def line_change (attr,old,new):
         #     print('\n\n\n', self.source_polyline.data,attr,old,new)
         # self.source_polyline.on_change('data',line_change)
         
-        
-        
+    
         
         return drawfront
+        
+        

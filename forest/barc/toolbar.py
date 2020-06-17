@@ -138,7 +138,27 @@ class BARC:
                     
         return tool4
 
+    def weatherFront(self,figure,i:int):
+        ''' 
+        The weatherfront function of barc
 
+        Arguments:
+            Figure - bokeh figure 
+            i (int) - figure index / order
+        
+        Returns:
+            List of custom toolbar elements
+        '''
+        
+        # function to update plot ranges in js
+        figure.x_range.js_on_change('start', front.range_change(figure,0)) 
+        
+        # add draw items to toolbar
+        toolbars = []
+        for front_type in 'warm cold convoluted'.split():
+            toolbars.append( front.front(self,figure,front_type) )
+        
+        return toolbars
 
 #####################################
 
@@ -146,7 +166,7 @@ class BARC:
     def ToolBar(self):
         toolBarBoxes = []
         for i, figure in enumerate(self.figures):
-            
+                
             ### label toolbars
             toolBarBoxes.append(
                 Paragraph(
@@ -156,8 +176,7 @@ class BARC:
                 )
             )
 
-            self.warm = front.front(self,figure,'warm')
-            figure.add_tools(*[front.front(self,figure,'warm')])
+            figure.add_tools(*self.weatherFront(figure,i))
 
             toolBarBoxes.append(
                  ToolbarBox(

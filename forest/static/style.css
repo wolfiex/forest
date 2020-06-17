@@ -147,7 +147,6 @@ div.barc_btn div button{
     background-image: url("barclogo.png")!important;
     background-size : 50pt!important;
     height:30pt!important;
-    
 }
 
 /* barc sidebar */
@@ -157,4 +156,37 @@ div.diagrams{
 
 div.barc_p div p{
     color:whitesmoke!important;
+}
+
+/* Weather Font */
+@font-face {
+  font-family: WeatherFront;
+  src: url('WeatherFront.woff') format('woff');
+}
+
+textPath.warm,
+textPath.cold,
+textPath.convoluted {
+    font-family: 'WeatherFront', serif !important;
+    font-size: .51em !important;
+  }
+
+
+svg {
+    pointer-events: none;
+}
+path {
+  fill: none;
+  stroke: tomato;
+  stroke-dasharray: 5, 5;
+  opacity:0.3;
+}
+.warm {
+  fill: tomato;
+}
+.cold {
+  fill: steelblue;
+}
+.convoluted {
+  fill: magenta;
 }

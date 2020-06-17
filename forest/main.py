@@ -256,6 +256,7 @@ def main(argv=None):
         tile_picker = forest.components.TilePicker()
         for figure in figures:
             tile_picker.add_figure(figure)
+            
         tile_picker.connect(store)
 
     # Connect color palette controls
@@ -451,8 +452,8 @@ class Navbar:
             css_classes=["float-right",'barc_btn'],
             name=key)
         custom_js = bokeh.models.CustomJS(code="""
-            openId("diagrams");
-            document.getElementById('diagrams').style.width='310px';
+         document.getElementById('diagrams').style.width='330px';
+            
         """)
         self.buttons[key].js_on_click(custom_js)
 

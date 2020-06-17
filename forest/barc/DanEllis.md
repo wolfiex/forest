@@ -39,7 +39,7 @@ callback = bokeh.models.CustomJS(code="""
  
  - also forest's bokeh uses node to create the server, so node packages are a possiblility, although I have not looked at this in too much detail. 
  
- 
+ - To clone fronts across all figures, just copy/duplicate the data arrays to all figures.
  
  
  
@@ -59,6 +59,7 @@ Correspondance and changes shown in the pull request thread and commits.
 #### 2 SideBar styling and width 
  - `main.py` callback for width styling
  - `static/style.css` for colour 
+ - include width parameter in `openId`
  
 #### 3. Remove location sensetive references. 
 The barc configuration required for forest and the config file to be run within the forest repository (e.g. for finding the wind barb png file). This has been fixed by reading the absolute location of the library and using that to reference the images. 
@@ -70,5 +71,42 @@ The barc configuration required for forest and the config file to be run within 
 #### 4. Toolabar labels  - see TODO
 Added descriptors for each barc toolbar and styling. 'Paragraph' `<p>`  elements at the end of barc/toolbar.py.
 
-#### 5. 
+#### 5. Reading Figure Bounding Box 
+The bounding box is defined by a Range1 bokeh object. 
+The easiest way to extract values from this is using its start and end attributes. This can be done using an on_change function. 
+```
+figure.x_range.on_change('start', lambda attr, old, new: print("Start", new))
+figure.x_range.on_change('end', lambda attr, old, new: print("End", new))
+```
+For drawing fronts, the js callback can read the rage and scale the saved coordinates to match. This can be defined as 
 
+1. get front locations 
+2. get bounding Box
+3. remove front points outside of bounding box 
+4. convert front lines to a percentage of the canvas 
+5. plot fronts using canvas pixels
+6. apply custom front font to canvas lines and also draw these on. 
+
+##### Notes 
+- save fronts to js, allowing the redrawing on each canvas change 
+- use global window elements to share these
+- update ranges, and add event listener in js to redrawfronts on canvas rerender.
+
+##### Changes 
+- added global `document.bbox` parameter in `static/scipt.js`.
+- this is an array of dictionaries depicting the x and y min/max ranges 
+- population is done as a js callback to change of a figures START x_range parameter (when the image is dragged or zoomed)
+- only the start parameter is used for the js_on_change callback as all movements of the figure should trigger this. 
+- code for this is stored within the front funciton within `barc/front.py`
+
+#### 6. Hide toolbars for figures not plotted 
+This has been added following the canvas updates each time the number of drawn weather fronts changes. 
+
+This is done by the js code snippet 
+```js 
+
+[...document.querySelectorAll('div[class="bk bk-toolbar bk-below"]')].forEach((d,i)=>{d.style.visibility = (i<canvases.length)?'visible':'hidden'})
+
+```
+
+#### 7. Draw canvas 
