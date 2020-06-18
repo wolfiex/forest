@@ -229,6 +229,7 @@ class FigureUI(Observable):
         js = bokeh.models.CustomJS(args=dict(labels=self.labels),
          code=""" 
          document.n = labels.indexOf(document.querySelector('div#sidenav .bk.bk-input-group select.bk.bk-input').value) + 1;
+         console.log('Updated # figures')
          get_figures(); 
          """)
         return js

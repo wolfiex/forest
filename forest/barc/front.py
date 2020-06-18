@@ -5,6 +5,7 @@ Data for Weather Front drawing on BARC
 from bokeh.models import ColumnDataSource, CustomJS , Paragraph
 from bokeh.models.tools import FreehandDrawTool
 from forest import data
+import time
 
 
 # def mecator_2_percent(posn):
@@ -27,12 +28,22 @@ from forest import data
 #     return [[x[i],y[i]] for i in range(len(x))]
 
     
-    
-    
+def range_shift(figure):
+    '''
+    This needs to happen AFTER document load
+    '''
+    figure.x_range.start += 10 
+    time.sleep(1)
+    figure.x_range.start -= 10
+    print('shift test')
+
 
 def range_change(figure,i):
     ''' Callback function on map range change '''
-
+    
+    time.sleep(2)
+    print ('∆ change')
+    
     js = CustomJS(args=dict(xr=figure.x_range,yr=figure.y_range,fig_n=i), code="""
         document.bbox[fig_n] = {x0:xr.start, x1:xr.end, y0:yr.start, y1:yr.end};
         console.log('∆range')
@@ -49,14 +60,20 @@ def front_callback(cdata,figure,which,fid):
     #pts= mecator_2_percent(data)
     
 
-    js = CustomJS(args=dict(paths = cdata,fronttype = which,  figure=figure, id=fid),
+    js = CustomJS(args=dict(paths = cdata,fronttype = which,figure=figure, fig_n=fid, xr=figure.x_range,yr=figure.y_range),
     code="""
-        if (document.canvases.length<1 ){get_figures()};
-        document.fronts[fronttype] = paths.data
+    
+        // if we have an empty canvas array - populate this
+        if (document.canvases.length != document.n ){get_figures()};
+        
+        document.fronts[fronttype]=paths.data
         console.log(document.fronts)
+        draw_front(fronttype,fig_n)  
         
-        draw_front(fronttype,id)
-        
+        // update ranges
+        document.bbox[fig_n] = {x0:xr.start, x1:xr.end, y0:yr.start, y1:yr.end};
+        resize_svg(fig_n)
+          
     """)
 
     return js
@@ -97,7 +114,7 @@ def front(self, figure, which:str,fid:int):
             xs="xs",
             ys="ys",
             source=getattr(self , 'source_'+which ),
-            alpha=0.3,
+            alpha=0.01,
             color=colours[which], level="overlay")
             
         drawfront = FreehandDrawTool(renderers=[line],custom_icon=__file__.replace('front.py','icons/%s.png'%which))

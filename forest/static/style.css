@@ -185,29 +185,47 @@ root .bk-toolbar,.bk-root .bk-toolbar *{box-sizing:border-box;margin:0;padding:0
 
 svg textPath, svg text {
     font-family: 'WeatherFront', serif !important;
-    font-size: 12em !important;
+    font-size: 14em !important;
   }
 
-#diagrams{
-    display:inline-block!important;
+svg path {
+    stroke-width:1px!important;
+    fill:none;
 }
 
 svg {
-    pointer-events: none;
+    pointer-events: none!important;
+    display:block;
 }
 
-.warm {
+textPath.warm {
   fill: tomato!important;
 }
-.cold {
+textPath.cold {
   fill: steelblue!important;
 }
-.occluded {
+textPath.occluded {
   fill: magenta!important;
 }
-.stationary {
+textPath.stationary {
   fill: green!important;
 }
+
+svg path.warm {
+  stroke: tomato!important;
+}
+svg path.cold {
+  stroke: steelblue!important;
+}
+svg path.occluded {
+  stroke: magenta!important;
+}
+svg path.stationary {
+  stroke: green!important;
+}
+
+
+
 
 /* remove logo */
 .bk-logo {

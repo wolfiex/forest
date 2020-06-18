@@ -12,7 +12,6 @@ class BARC:
     def __init__(self, figures):
         self.figures = figures
         ''' For each figure supplied (if multiple) ''' 
-        print( '\n\n\n',figures)
         for figure in self.figures:
             barc_tools = [
                 self.polyLine(figure),
@@ -22,9 +21,6 @@ class BARC:
             #self.figure.tools = barc_tools
             figure.add_tools(*barc_tools)
             
-
-            
-    
 
 
     def polyLine(self, figure):
@@ -45,13 +41,8 @@ class BARC:
             bokeh.models.CustomJS(args=dict(datasource = render_line.data_source, starting_font_size="30px", figure=figure, starting_colour="red", text=Text()), code="""
             console.log(datasource.data);
                 """)
-        )
-        # 
-        # def line_change (attr,old,new):
-        #     print('\n\n\n', self.source_polyline.data,attr,old,new)
-        # 
-        # self.source_polyline.on_change('data',line_change)
-        
+            )
+            
         return tool2
 
 
@@ -121,6 +112,7 @@ class BARC:
                     )
         return tool3
 
+
     def windBarb(self, figure):
         self.source_barb = ColumnDataSource(data.EMPTY)
         render_barb = figure.barb(
@@ -138,6 +130,7 @@ class BARC:
                     
         return tool4
 
+
     def weatherFront(self,figure,fid:int):
         ''' 
         The weatherfront function of barc
@@ -151,7 +144,7 @@ class BARC:
         '''
         
         # function to update plot ranges in js
-        figure.x_range.js_on_change('start', front.range_change(figure,fid)) 
+        figure.x_range.js_on_change('start', front.range_change(figure,fid))
         
         # add draw items to toolbar
         toolbars = []
@@ -160,6 +153,7 @@ class BARC:
         
         return toolbars #Toolbar(tools = toolbars)
 
+#####################################
 #####################################
 
 
@@ -176,6 +170,7 @@ class BARC:
                 )
             )
 
+            
             figure.add_tools(*self.weatherFront(figure,i))
 
             toolBarBoxes.append(
@@ -195,6 +190,8 @@ class BARC:
             # )
             # 
             
-            
+            ''' Do this AFTER load'''
+            #shift range to trigger callback
+            #front.range_shift(figure)
             
         return toolBarBoxes

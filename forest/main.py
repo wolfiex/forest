@@ -451,13 +451,14 @@ class Navbar:
             label = '',# label="Diagrams",# now contains the barc logo
             css_classes=["float-right",'barc_btn'],
             name=key)
+            
         custom_js = bokeh.models.CustomJS(code="""
          document.getElementById('diagrams').style.width='310px';
          hide_menus();
-            
         """)
+        
         self.buttons[key].js_on_click(custom_js)
-
+        
         roots = [
             self.buttons["sidenav_button"],
             self.headline.layout,

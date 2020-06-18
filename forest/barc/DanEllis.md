@@ -98,6 +98,8 @@ For drawing fronts, the js callback can read the rage and scale the saved coordi
 #### 6. Hide toolbars for figures not plotted 
 Each toolbar section is grouped in a class representing its figure number. This is named `barc_gX` where X is the figure number. The function `hide_figures` which was added to `static/script.js` performs this function and runs when the barc toolbar is opened *and* when the number of figures are changed within 'Settings'. 
 
+This relies on a variable `document.maxfig` which needs to be manually updated if forest ever displays more than 3 plots simultaniously
+
 #### 7. WRAPtoolbar on multiple rows
 CSS script was added to force the wrapping of the toolbar elements- `static/style.css`. It was possible to add additional toolbars (see commented out coe in `barc/toolbar`, however this broke the link between the document. Ideally this method is preferred but it may be needed )
 
@@ -105,5 +107,23 @@ CSS script was added to force the wrapping of the toolbar elements- `static/styl
 1. To draw the weather fronts, new freehand draw tools are defined, and custom icons selected. 
 2. These provide the drawn path data to the `draw_front` function in `static/script.js` 
 3. When the screen is moved (an arificial move of the ranges is triggered in `barc/toolbar.py` to trigger this) the js document reads the Figure Ranges and scales the SVG viewbox to match these. 
-4. Using the drawn data, 
- 
+4. Using the drawn data, path definitions are created within the SVG. These form the basis of the outline the text will follow. These are not plotted in the figure.
+5. Drawn data MUST be divided by a scalar, as otherwise it is not possible to scale a font large enough to appear on the map. This is done by dividing by ~100 by the `scaled` constant in `static/script.js` 
+6. Drawings from all figures are merged in javascript, but drawn separately on each figure. 
+7. Figure overlays should up
+
+
+## NOTE
+- For efficiency only the latest entry within the document.fronts are drawn. 
+- if reimporting a file, a new function which loops across all variables needs to be added. This can be used to call the existing `draw_front` function if needed. 
+- If wanting  to duplicate the data across different figures, copy data between different `document.fronts` elements. 
+- Coordinates are still contained within bokeh, and can be extracted and stored in the same way as other annotations (when this is implemented).  
+- Fast zoom / pan motions do not send sufficient updates to the callback function and often need a 'small' movement afterwards to align the SVG and canvas fronts. 
+- There are more canvas elements than figures. This is due to the timeline in the footer. When selecting query canvas elements within the figure div and select every other item. 
+```
+document.canvases = [...document.querySelectorAll('#figures div[class="bk-root"] canvas')].filter((_, index) =>index % 2 === 0)
+```
+- Icon files are located within `barc/icons` These can be edited and backgrounds added (they are png files for now. )
+### Layering 
+
+Python -> Bokeh -> html + canvas (via websockets) -> JS -> SVG 
