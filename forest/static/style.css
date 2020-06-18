@@ -158,35 +158,58 @@ div.barc_p div p{
     color:whitesmoke!important;
 }
 
+/* wrap toolbar */
+.bk-root .bk-toolbar.bk-below .bk-toolbar-button, .bk .bk-toolbar   { 
+  -webkit-flex-wrap: wrap!important;
+  flex-wrap: wrap!important;
+  display:flex!important;
+} 
+
+root .bk-toolbar,.bk-root .bk-toolbar *{box-sizing:border-box;margin:0;padding:0}
+
+.bk-root .bk-toolbar,.bk-root .bk-button-bar{display:flex;display:-webkit-flex;flex-wrap:nowrap;-webkit-flex-wrap:nowrap;align-items:center;-webkit-align-items:center;user-select:none;-moz-user-select:none;-webkit-user-select:none;-ms-user-select:none}
+
+.bk-root .bk-toolbar-above,.bk-root .bk-toolbar-below{flex-direction:row;-webkit-flex-direction:row;justify-content:flex-end;-webkit-justify-content:flex-end}
+
+.bk-root .bk-toolbar-above .bk-button-bar,.bk-root .bk-toolbar-below .bk-button-bar{display:flex;display:-webkit-flex;flex-direction:row;-webkit-flex-direction:row}
+
+
+.bk-root .bk-toolbar-left,.bk-root .bk-toolbar-right{flex-direction:column;-webkit-flex-direction:column;justify-content:flex-start;-webkit-justify-content:flex-start}
+.bk-root .bk-toolbar-left .bk-button-bar,.bk-root .bk-toolbar-right .bk-button-bar{display:flex;display:-webkit-flex;flex-direction:column;-webkit-flex-direction:column}
+
 /* Weather Font */
 @font-face {
   font-family: WeatherFront;
   src: url('WeatherFront.woff') format('woff');
 }
 
-textPath.warm,
-textPath.cold,
-textPath.convoluted {
+svg textPath, svg text {
     font-family: 'WeatherFront', serif !important;
-    font-size: .51em !important;
+    font-size: 12em !important;
   }
 
+#diagrams{
+    display:inline-block!important;
+}
 
 svg {
     pointer-events: none;
 }
-path {
-  fill: none;
-  stroke: tomato;
-  stroke-dasharray: 5, 5;
-  opacity:0.3;
-}
+
 .warm {
-  fill: tomato;
+  fill: tomato!important;
 }
 .cold {
-  fill: steelblue;
+  fill: steelblue!important;
 }
-.convoluted {
-  fill: magenta;
+.occluded {
+  fill: magenta!important;
+}
+.stationary {
+  fill: green!important;
+}
+
+/* remove logo */
+.bk-logo {
+    display:none !important;
 }

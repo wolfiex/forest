@@ -452,7 +452,8 @@ class Navbar:
             css_classes=["float-right",'barc_btn'],
             name=key)
         custom_js = bokeh.models.CustomJS(code="""
-         document.getElementById('diagrams').style.width='330px';
+         document.getElementById('diagrams').style.width='310px';
+         hide_menus();
             
         """)
         self.buttons[key].js_on_click(custom_js)

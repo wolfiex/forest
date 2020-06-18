@@ -3,11 +3,6 @@
 
 ### Issues
 
-### TODO
-- bart reads all possible plots. Often only one is displayed. 
-It is worth reading the number displayed from FigureUI(Observable) in `layers.py` and only showing that many toolbars.
-
-
 
 ### Notes 
 - Run command: `forest --dev --config-file nwcsaftest.yml --show; pkill -9 python
@@ -68,10 +63,10 @@ The barc configuration required for forest and the config file to be run within 
 
  `wind.__file__.replace('__init__.py','barb.png')`
  
-#### 4. Toolabar labels  - see TODO
+#### 4. Toolabar labels 
 Added descriptors for each barc toolbar and styling. 'Paragraph' `<p>`  elements at the end of barc/toolbar.py.
 
-#### 5. Reading Figure Bounding Box 
+#### 5. Reading Figure Bounding Box (see next section )
 The bounding box is defined by a Range1 bokeh object. 
 The easiest way to extract values from this is using its start and end attributes. This can be done using an on_change function. 
 ```
@@ -82,12 +77,13 @@ For drawing fronts, the js callback can read the rage and scale the saved coordi
 
 1. get front locations 
 2. get bounding Box
-3. remove front points outside of bounding box 
-4. convert front lines to a percentage of the canvas 
-5. plot fronts using canvas pixels
-6. apply custom front font to canvas lines and also draw these on. 
+3.  ~~remove front points outside of bounding box  ~~
+4.  ~~convert front lines to a percentage of the canvas  ~~
+5.  ~~plot fronts using canvas pixels ~~
+6.  ~~apply custom front font to canvas lines and also draw these on.  ~~
 
-##### Notes 
+#####  ~~ Notes  ~~
+
 - save fronts to js, allowing the redrawing on each canvas change 
 - use global window elements to share these
 - update ranges, and add event listener in js to redrawfronts on canvas rerender.
@@ -100,13 +96,14 @@ For drawing fronts, the js callback can read the rage and scale the saved coordi
 - code for this is stored within the front funciton within `barc/front.py`
 
 #### 6. Hide toolbars for figures not plotted 
-This has been added following the canvas updates each time the number of drawn weather fronts changes. 
+Each toolbar section is grouped in a class representing its figure number. This is named `barc_gX` where X is the figure number. The function `hide_figures` which was added to `static/script.js` performs this function and runs when the barc toolbar is opened *and* when the number of figures are changed within 'Settings'. 
 
-This is done by the js code snippet 
-```js 
+#### 7. WRAPtoolbar on multiple rows
+CSS script was added to force the wrapping of the toolbar elements- `static/style.css`. It was possible to add additional toolbars (see commented out coe in `barc/toolbar`, however this broke the link between the document. Ideally this method is preferred but it may be needed )
 
-[...document.querySelectorAll('div[class="bk bk-toolbar bk-below"]')].forEach((d,i)=>{d.style.visibility = (i<canvases.length)?'visible':'hidden'})
-
-```
-
-#### 7. Draw canvas 
+###  Draw SVG / WeatherFronts
+1. To draw the weather fronts, new freehand draw tools are defined, and custom icons selected. 
+2. These provide the drawn path data to the `draw_front` function in `static/script.js` 
+3. When the screen is moved (an arificial move of the ranges is triggered in `barc/toolbar.py` to trigger this) the js document reads the Figure Ranges and scales the SVG viewbox to match these. 
+4. Using the drawn data, 
+ 

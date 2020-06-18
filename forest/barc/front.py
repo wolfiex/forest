@@ -6,24 +6,27 @@ from bokeh.models import ColumnDataSource, CustomJS , Paragraph
 from bokeh.models.tools import FreehandDrawTool
 from forest import data
 
-def mecator_2_percent(posn):
-    ''' 
-    NO LONGER NEEDED - normalise by range not location
+
+# def mecator_2_percent(posn):
+#     ''' 
+#     NO LONGER NEEDED - normalise by range not location
+# 
+#     Convert between EPSG:3857 WGS 84 / Pseudo-Mercator to a percentage of the lon lat map -180 to 180 and -90 to 90 map
+# 
+#     x = lon
+#     y = lat
+#     '''
+# 
+# 
+#     mlon = 20037508.34
+#     mlat = 31296372.44
+# 
+#     x = (np.array(posn['xs']) + mlon) / mlon
+#     y = (np.array(posn['ys']) + mlon) / mlon
+# 
+#     return [[x[i],y[i]] for i in range(len(x))]
+
     
-    Convert between EPSG:3857 WGS 84 / Pseudo-Mercator to a percentage of the lon lat map -180 to 180 and -90 to 90 map
-    
-    x = lon
-    y = lat
-    '''
-    
-    
-    mlon = 20037508.34
-    mlat = 31296372.44
-    
-    x = (np.array(posn['xs']) + mlon) / mlon
-    y = (np.array(posn['ys']) + mlon) / mlon
-    
-    return [[x[i],y[i]] for i in range(len(x))]
     
     
 
@@ -33,6 +36,7 @@ def range_change(figure,i):
     js = CustomJS(args=dict(xr=figure.x_range,yr=figure.y_range,fig_n=i), code="""
         document.bbox[fig_n] = {x0:xr.start, x1:xr.end, y0:yr.start, y1:yr.end};
         console.log('∆range')
+        resize_svg(fig_n)
         """)
 
     return js
@@ -40,16 +44,18 @@ def range_change(figure,i):
 
 
 
-def front_callback(cdata,figure,which):
+def front_callback(cdata,figure,which,fid):
     ''' Update the JS variables containing all drawn front paths. '''
     #pts= mecator_2_percent(data)
     
 
-    js = CustomJS(args=dict(paths = cdata,fronttype = which,  figure=figure),
+    js = CustomJS(args=dict(paths = cdata,fronttype = which,  figure=figure, id=fid),
     code="""
         if (document.canvases.length<1 ){get_figures()};
         document.fronts[fronttype] = paths.data
         console.log(document.fronts)
+        
+        draw_front(fronttype,id)
         
     """)
 
@@ -59,13 +65,14 @@ def front_callback(cdata,figure,which):
 
 
     
-def front(self, figure, which:str):
+def front(self, figure, which:str,fid:int):
         '''
         Freehand drawtool for weather fronts
         
         Arguments:
             Figure - bokeh figure
             Which:str - type of front
+            fid: figure number (raw)
             
         Documentation of FreehandDrawTool
                 
@@ -81,7 +88,8 @@ def front(self, figure, which:str):
 
         '''
         
-        colours = {'warm':'red','cold':'blue','convoluted':'purple'}
+        colours = {'warm':'red','cold':'blue','occluded':'purple','stationary':'green'}
+        # actual svg colours in static stylesheet
         
         setattr(self, 'source_'+which , ColumnDataSource(data.EMPTY) )
         
@@ -92,9 +100,9 @@ def front(self, figure, which:str):
             alpha=0.3,
             color=colours[which], level="overlay")
             
-        drawfront = FreehandDrawTool(renderers=[line],custom_icon=__file__.replace('front.py','icons/barclogo.png'))
+        drawfront = FreehandDrawTool(renderers=[line],custom_icon=__file__.replace('front.py','icons/%s.png'%which))
                     
-        getattr(self , 'source_'+which ).js_on_change('data', front_callback(line.data_source,figure,which) )
+        getattr(self , 'source_'+which ).js_on_change('data', front_callback(line.data_source,figure,which,fid) )
         
         
         # def line_change (attr,old,new):

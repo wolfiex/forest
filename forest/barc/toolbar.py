@@ -2,7 +2,7 @@ import bokeh.models
 from bokeh.models import ColumnDataSource, Paragraph
 from bokeh.models.glyphs import Text
 from bokeh.core.properties import value
-from bokeh.models.tools import PolyDrawTool, PointDrawTool, ToolbarBox,FreehandDrawTool
+from bokeh.models.tools import PolyDrawTool, PointDrawTool, ToolbarBox,FreehandDrawTool,Toolbar
 from forest import wind, data
 from . import front
 
@@ -138,27 +138,27 @@ class BARC:
                     
         return tool4
 
-    def weatherFront(self,figure,i:int):
+    def weatherFront(self,figure,fid:int):
         ''' 
         The weatherfront function of barc
 
         Arguments:
             Figure - bokeh figure 
-            i (int) - figure index / order
+            fid (int) - figure index / order
         
         Returns:
             List of custom toolbar elements
         '''
         
         # function to update plot ranges in js
-        figure.x_range.js_on_change('start', front.range_change(figure,0)) 
+        figure.x_range.js_on_change('start', front.range_change(figure,fid)) 
         
         # add draw items to toolbar
         toolbars = []
-        for front_type in 'warm cold convoluted'.split():
-            toolbars.append( front.front(self,figure,front_type) )
+        for front_type in 'warm cold occluded stationary'.split():
+            toolbars.append( front.front(self,figure,front_type,fid) )
         
-        return toolbars
+        return toolbars #Toolbar(tools = toolbars)
 
 #####################################
 
@@ -166,13 +166,13 @@ class BARC:
     def ToolBar(self):
         toolBarBoxes = []
         for i, figure in enumerate(self.figures):
-                
+
             ### label toolbars
             toolBarBoxes.append(
                 Paragraph(
                 text="""Toolbar: Figure %d"""%(i+1),
                 width=200, height=18,
-                css_classes=['barc_p']
+                css_classes=['barc_p','barc_g%d'%i]
                 )
             )
 
@@ -181,12 +181,19 @@ class BARC:
             toolBarBoxes.append(
                  ToolbarBox(
                      toolbar = figure.toolbar,
-                     toolbar_location = "below"
+                     toolbar_location = "below",
+                     css_classes=['barc_g%d'%i]
                  )
             )
             
-            
-            
+            # toolBarBoxes.append(
+            #      ToolbarBox(
+            #          toolbar = self.weatherFront(figure,i),
+            #          toolbar_location = "below",
+            #          css_classes=['barc_g%d'%i]
+            #      )
+            # )
+            # 
             
             
             
