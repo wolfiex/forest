@@ -77,6 +77,10 @@ For drawing fronts, the js callback can read the rage and scale the saved coordi
 
 1. get front locations 
 2. get bounding Box
+
+```
+This section was changed and is no longer valid - bottom. 
+
 3.  ~~remove front points outside of bounding box  ~~
 4.  ~~convert front lines to a percentage of the canvas  ~~
 5.  ~~plot fronts using canvas pixels ~~
@@ -87,7 +91,7 @@ For drawing fronts, the js callback can read the rage and scale the saved coordi
 - save fronts to js, allowing the redrawing on each canvas change 
 - use global window elements to share these
 - update ranges, and add event listener in js to redrawfronts on canvas rerender.
-
+```
 ##### Changes 
 - added global `document.bbox` parameter in `static/scipt.js`.
 - this is an array of dictionaries depicting the x and y min/max ranges 
@@ -110,20 +114,20 @@ CSS script was added to force the wrapping of the toolbar elements- `static/styl
 4. Using the drawn data, path definitions are created within the SVG. These form the basis of the outline the text will follow. These are not plotted in the figure.
 5. Drawn data MUST be divided by a scalar, as otherwise it is not possible to scale a font large enough to appear on the map. This is done by dividing by ~100 by the `scaled` constant in `static/script.js` 
 6. Drawings from all figures are merged in javascript, but drawn separately on each figure. 
-7. Figure overlays should up
+7. Figure overlays should line up and move together if figures do the same. 
 
 
 ## NOTE
 - For efficiency only the latest entry within the document.fronts are drawn. 
 - if reimporting a file, a new function which loops across all variables needs to be added. This can be used to call the existing `draw_front` function if needed. 
-- If wanting  to duplicate the data across different figures, copy data between different `document.fronts` elements. 
+- If wanting  to duplicate the data across different figures, copy data between different `document.fronts` elements. In python this will be done within the BARC class. 
 - Coordinates are still contained within bokeh, and can be extracted and stored in the same way as other annotations (when this is implemented).  
 - Fast zoom / pan motions do not send sufficient updates to the callback function and often need a 'small' movement afterwards to align the SVG and canvas fronts. 
-- There are more canvas elements than figures. This is due to the timeline in the footer. When selecting query canvas elements within the figure div and select every other item. 
+- There are more canvas elements than figures. This is due to the timeline in the footer. Selecting query canvas elements within the figure div first: 
 ```
 document.canvases = [...document.querySelectorAll('#figures div[class="bk-root"] canvas')].filter((_, index) =>index % 2 === 0)
 ```
 - Icon files are located within `barc/icons` These can be edited and backgrounds added (they are png files for now. )
 ### Layering 
 
-Python -> Bokeh -> html + canvas (via websockets) -> JS -> SVG 
+Python -> Bokeh -> html + canvas (via websockets) -> JS -> SVG -> python
